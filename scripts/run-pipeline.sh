@@ -10,7 +10,7 @@ docker run --rm -v "$(pwd)/processing-service:/app" -w /app maven:3.9-eclipse-te
 echo "✅ Packages built!"
 
 echo "🚀 Starting containers..."
-docker-compose up -d
+docker compose up -d
 
 echo "🌐 Waiting for services (Postgres + Elasticsearch) to be ready..."
 ./scripts/wait-for-services.sh
@@ -24,5 +24,5 @@ echo "🎉 Pipeline started successfully!"
 echo "🗄️  Postgres:          localhost:5432  (admin/admin)"
 echo "🔍 Elasticsearch:     http://localhost:9200  (elastic/test)"
 echo "🌊 Flink Dashboard:   http://localhost:8081"
-echo "💡 To stop everything: docker-compose down -v"
+echo "💡 To stop everything: docker compose down -v"
 echo ""

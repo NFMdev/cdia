@@ -4,6 +4,7 @@ import com.github.NFMdev.cdia.common.dto.ImageDto;
 import com.github.NFMdev.cdia.ingestion_service.model.event.EventImageEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -14,7 +15,7 @@ public class ImageMapperTest {
 
     @BeforeEach
     void setUp() {
-        imageMapper = new ImageMapperImpl();
+        imageMapper = Mappers.getMapper(ImageMapper.class);
     }
 
     @Test

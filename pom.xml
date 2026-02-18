@@ -14,6 +14,7 @@
 		<module>processing-service</module>
 		<module>reports-service</module>
 		<module>search-service</module>
+		<module>event-simulator-service</module>
 	</modules>
 
 	<properties>
@@ -97,6 +98,13 @@
 						<source>${java.version}</source>
 						<target>${java.version}</target>
 						<release>${java.version}</release>
+						<annotationProcessorPaths>
+							<path>
+								<groupId>org.projectlombok</groupId>
+								<artifactId>lombok</artifactId>
+								<version>1.18.34</version>
+							</path>
+						</annotationProcessorPaths>
 					</configuration>
 				</plugin>
 			</plugins>

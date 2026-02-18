@@ -13,7 +13,7 @@ public class AnomalyMapperTest {
 
     @BeforeEach
     void setUp() {
-        anomalyMapper = new AnomalyMapperImpl();
+        anomalyMapper = org.mapstruct.factory.Mappers.getMapper(AnomalyMapper.class);
     }
 
     void testToEntity() {

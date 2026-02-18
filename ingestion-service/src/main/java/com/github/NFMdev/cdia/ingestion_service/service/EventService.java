@@ -6,7 +6,6 @@ import com.github.NFMdev.cdia.ingestion_service.mapper.EventMapper;
 import com.github.NFMdev.cdia.ingestion_service.model.event.EventEntity;
 import com.github.NFMdev.cdia.ingestion_service.repository.EventRepository;
 import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 

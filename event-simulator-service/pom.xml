@@ -25,19 +25,16 @@
     <dependency>
       <artifactId>common</artifactId>
       <groupId>com.github.NFMdev.cdia</groupId>
-	  <version>0.0.6-SNAPSHOT</version>
     </dependency>
   </dependencies>
 
   <build>
-		<finalName>ingestion-service</finalName>
+		<finalName>event-simulator-service</finalName>
 
 		<plugins>
-			<!-- Spring Boot executable jar with 'exec' classifier -->
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
-				<version>${spring-boot.version}</version>
 				<executions>
 					<execution>
 						<goals>
@@ -48,27 +45,6 @@
 						</configuration>
 					</execution>
 				</executions>
-			</plugin>
-
-			<!-- Compiler plugin -->
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.11.0</version>
-				<configuration>
-					<source>21</source>
-					<target>21</target>
-				</configuration>
-			</plugin>
-
-			<!-- Resources plugin -->
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-resources-plugin</artifactId>
-				<version>3.3.1</version>
-				<configuration>
-					<encoding>UTF-8</encoding>
-				</configuration>
 			</plugin>
 		</plugins>
 	</build>

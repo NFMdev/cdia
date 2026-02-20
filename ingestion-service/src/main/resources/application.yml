@@ -6,9 +6,9 @@ spring:
     name: ingestion-service
 
   datasource:
-    url: jdbc:postgresql://postgres:5432/crime_analytics
-    username: admin
-    password: admin
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/crime_analytics}
+    username: ${SPRING_DATASOURCE_USERNAME:admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:admin}
     driver-class-name: org.postgresql.Driver
 
   jpa:

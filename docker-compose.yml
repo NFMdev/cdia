@@ -1,15 +1,19 @@
+name: cdia
+
 networks:
   cdia-net:
     driver: bridge
 
 volumes:
-  postgres-data:
-  elastic-data:
+  postgres_data:
+  es_data:
 
 services:
   postgres:
-    image: postgres:17
+    image: postgres:16-alpine
+    pull_policy: if_not_present
     container_name: postgres
+    profiles: ["core"]
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
@@ -17,87 +21,102 @@ services:
     ports:
       - "5432:5432"
     command:
-      - "postgres"
-      - "-c"
-      - "wal_level=logical"
-      - "-c"
-      - "max_wal_senders=10"
-      - "-c"
-      - "max_replication_slots=10"
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./initdb:/docker-entrypoint-initdb.d
+      - postgres_data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
     networks:
       - cdia-net
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U admin -d crime_analytics" ]
+      test: ["CMD-SHELL", "pg_isready -U admin -d crime_analytics"]
       interval: 5s
+      timeout: 3s
       retries: 20
+      start_period: 10s
 
   cdia-elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.2
+    pull_policy: if_not_present
     container_name: cdia-elasticsearch
+    profiles: ["core"]
     environment:
-      ELASTIC_USERNAME: elastic
-      ELASTIC_PASSWORD: test
-      xpack.security.enabled: true
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-test}
+      xpack.security.enabled: "true"
+      xpack.security.http.ssl.enabled: "false"
       node.name: es01
       discovery.type: single-node
       ES_JAVA_OPTS: "-Xms512m -Xmx512m"
     ports:
       - "9200:9200"
-      - "9300:9300"
     volumes:
-      - ./data/elasticsearch:/usr/share/elasticsearch/data
+      - es_data:/usr/share/elasticsearch/data
     networks:
       - cdia-net
     healthcheck:
-      test: [ "CMD", "curl", "-u", "elastic:test", "-f", "http://localhost:9200" ]
+      test: ["CMD-SHELL", "curl -fsS -u elastic:${ELASTIC_PASSWORD:-test} 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' > /dev/null"]
       interval: 10s
-      retries: 20
+      timeout: 5s
+      retries: 30
+      start_period: 25s
 
   ingestion-service:
-    image: eclipse-temurin:21-jdk
+    image: eclipse-temurin:21-jre
+    pull_policy: if_not_present
     container_name: ingestion-service
+    profiles: ["apps"]
     depends_on:
-      - postgres
-      - cdia-elasticsearch
+      postgres:
+        condition: service_healthy
+      cdia-elasticsearch:
+        condition: service_healthy
     ports:
       - "8080:8080"
     working_dir: /app
-    command: [ "java", "-jar", "/app/ingestion-service-exec.jar" ]
+    command: ["java", "-jar", "/app/ingestion-service-exec.jar"]
     volumes:
-      - ./ingestion-service/target/ingestion-service-exec.jar:/app/ingestion-service-exec.jar
+      - ./ingestion-service/target/ingestion-service-exec.jar:/app/ingestion-service-exec.jar:ro
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crime_analytics
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin
-      ELASTICSEARCH_HOSTS: http://cdia-elasticsearch:9200
+      SPRING_ELASTICSEARCH_URIS: http://cdia-elasticsearch:9200
+      SPRING_ELASTICSEARCH_USERNAME: elastic
+      SPRING_ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:-test}
     networks:
       - cdia-net
 
   search-service:
-    image: eclipse-temurin:21-jdk
+    image: eclipse-temurin:21-jre
+    pull_policy: if_not_present
     container_name: search-service
+    profiles: ["apps"]
     depends_on:
       cdia-elasticsearch:
         condition: service_healthy
     ports:
       - "8085:8085"
     working_dir: /app
-    command: [ "java", "-jar", "/app/search-service.jar" ]
+    command: ["java", "-jar", "/app/search-service.jar"]
     volumes:
-      - ./search-service/target/search-service.jar:/app/search-service.jar
+      - ./search-service/target/search-service.jar:/app/search-service.jar:ro
     environment:
-      ELASTICSEARCH_HOSTS: http://cdia-elasticsearch:9200
-      ELASTICSEARCH_DATASOURCE_USERNAME: elastic
-      ELASTICSEARCH_DATASOURCE_PASSWORD: test
+      SPRING_ELASTICSEARCH_URIS: http://cdia-elasticsearch:9200
+      SPRING_ELASTICSEARCH_USERNAME: elastic
+      SPRING_ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:-test}
     networks:
       - cdia-net
 
   reports-service:
-    image: eclipse-temurin:21-jdk
+    image: eclipse-temurin:21-jre
+    pull_policy: if_not_present
     container_name: reports-service
+    profiles: ["apps"]
     depends_on:
       cdia-elasticsearch:
         condition: service_healthy
@@ -106,37 +125,69 @@ services:
     ports:
       - "8084:8084"
     working_dir: /app
-    command: [ "java", "-jar", "/app/reports-service.jar" ]
+    command: ["java", "-jar", "/app/reports-service.jar"]
     volumes:
-      - ./reports-service/target/reports-service.jar:/app/reports-service.jar
+      - ./reports-service/target/reports-service.jar:/app/reports-service.jar:ro
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crime_analytics
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      SPRING_ELASTICSEARCH_URIS: http://cdia-elasticsearch:9200
+      SPRING_ELASTICSEARCH_USERNAME: elastic
+      SPRING_ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:-test}
     networks:
       - cdia-net
 
   flink-jobmanager:
-    image: flink:1.20-scala_2.12-java17
+    image: flink:1.20.3-scala_2.12-java17
+    pull_policy: if_not_present
     container_name: flink-jobmanager
+    profiles: ["streaming"]
     environment:
-      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+      FLINK_JOB_PARALLELISM: 2
+      ANOMALY_OPEN_THRESHOLD: 1000
+      ANOMALY_CLOSE_THRESHOLD: 600
+      ANOMALY_REALERT_SECONDS: 15
+      FLINK_PROPERTIES: |
+        parallelism.default: 2
     ports:
       - "8081:8081"
-      - "6123:6123"  # RPC
+      - "6123:6123"
     command: jobmanager
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8081" ]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/overview > /dev/null"]
       interval: 5s
+      timeout: 3s
       retries: 20
+      start_period: 15s
     volumes:
-      - ./processing-service/target/processing-service.jar:/opt/flink/usrlib/processing-service.jar
+      - ./processing-service/target/processing-service.jar:/opt/flink/usrlib/processing-service.jar:ro
     networks:
       - cdia-net
 
   flink-taskmanager:
-      image: flink:1.20-scala_2.12-java17
-      container_name: flink-taskmanager
-      depends_on:
-        - flink-jobmanager
-      environment:
-        - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
-      command: taskmanager
-      networks:
-        - cdia-net
+    image: flink:1.20.3-scala_2.12-java17
+    pull_policy: if_not_present
+    container_name: flink-taskmanager
+    profiles: ["streaming"]
+    depends_on:
+      flink-jobmanager:
+        condition: service_healthy
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+      FLINK_JOB_PARALLELISM: 2
+      ANOMALY_OPEN_THRESHOLD: 1000
+      ANOMALY_CLOSE_THRESHOLD: 600
+      ANOMALY_REALERT_SECONDS: 15
+      FLINK_PROPERTIES: |
+        taskmanager.numberOfTaskSlots: 2
+    command: taskmanager
+    healthcheck:
+      test: ["CMD-SHELL", "ps -ef | grep -q '[T]askManagerRunner'"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+    networks:
+      - cdia-net

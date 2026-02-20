@@ -270,7 +270,7 @@ CDIA-XCI-project/
 
 3. **Verify services are running**
    ```bash
-   docker-compose ps
+   docker compose ps
    ```
 
    Expected output:
@@ -314,16 +314,35 @@ If you prefer manual control:
 # Build all services
 mvn clean package -DskipTests
 
-# Start infrastructure only
-docker-compose up -d postgres cdia-elasticsearch flink-jobmanager flink-taskmanager
+# Start local dependencies for IDE-first development
+docker compose --profile core up -d
+docker compose --profile streaming up -d
 
-# Start microservices
-docker-compose up -d ingestion-service search-service reports-service
+# Optionally run app containers too
+docker compose --profile core --profile apps up -d
 
 # Submit Flink job
 docker exec -it flink-jobmanager flink run \\
   /opt/flink/usrlib/processing-service.jar
 ```
+
+### IDE-first Local Workflows (Recommended)
+
+```bash
+# First run (pre-pull pinned images once)
+docker compose pull postgres cdia-elasticsearch flink-jobmanager flink-taskmanager
+
+# Core dependencies for Spring Boot services
+docker compose --profile core up -d
+
+# Flink cluster only when needed
+docker compose --profile streaming up -d
+
+# Stop and clean up dependencies
+docker compose --profile core --profile streaming down
+```
+
+Elasticsearch local defaults keep security enabled with user `elastic` and password `${ELASTIC_PASSWORD:-test}`.
 
 ---
 

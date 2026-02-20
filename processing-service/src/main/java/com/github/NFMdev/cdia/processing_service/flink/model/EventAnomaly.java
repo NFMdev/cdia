@@ -19,5 +19,6 @@ public class EventAnomaly {
     public Timestamp detectedAt;
     public String rule;
     public String severity;
+    public String alertState;
     public String description;
 }

@@ -25,7 +25,7 @@ class EventMapperMockitoTest {
     private AnomalyMapper anomalyMapper;
 
     @InjectMocks
-    private EventMapperImpl eventMapper; // generated implementation
+    private EventMapper eventMapper;
 
     @Test
     void testToDto() {

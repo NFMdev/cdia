@@ -1,0 +1,28 @@
+server:
+  port: 8090
+
+simulator:
+  target-url: "http://localhost:8080/events"
+  events-per-second: 50
+  concurrency: 16
+  seed: 42
+  burst:
+    enabled: true
+    every-seconds: 60
+    multiplier: 5
+    duration-seconds: 10
+  probabilities:
+    metadata: 0.2
+    images: 0.03
+    anomalies: 0.01
+  locations:
+    - "Aalborg - 57.0480,9.9187"
+    - "Aarhus - 56.1640, 10.2032"
+    - "Copenhagen Central - 55.6720,12.5646"
+    - "Copenhagen Airport - 55.6124, 12.6477"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

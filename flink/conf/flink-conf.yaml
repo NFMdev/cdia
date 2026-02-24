@@ -1,0 +1,5 @@
+state.checkpoints.dir: file:///flink-checkpoints
+state.savepoints.dir: file:///flink-savepoints
+restart-strategy: fixed-delay
+restart-strategy.fixed-delay.attempts: 10
+restart-strategy.fixed-delay.delay: 10s

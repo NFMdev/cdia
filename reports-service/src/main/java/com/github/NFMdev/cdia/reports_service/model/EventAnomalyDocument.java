@@ -7,7 +7,6 @@ import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -16,7 +15,7 @@ import java.util.UUID;
 @Document(indexName = "event-anomalies")
 public class EventAnomalyDocument {
     @Id
-    private UUID id;
+    private String id;
     private String location;
     public long eventCount;
     public String windowStart;

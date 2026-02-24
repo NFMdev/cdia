@@ -12,6 +12,7 @@ import org.apache.flink.cdc.connectors.postgres.source.PostgresSourceBuilder;
 import org.apache.flink.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.flink.connector.elasticsearch.sink.Elasticsearch8AsyncSink;
 import org.apache.flink.connector.elasticsearch.sink.Elasticsearch8AsyncSinkBuilder;
+import org.apache.flink.core.execution.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.http.HttpHost;
@@ -22,11 +23,18 @@ public class AnomalyJob {
 
     public static void main(String[] args) throws Exception {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        // Parallelism config
         int executionParallelism = Integer.parseInt(System.getenv().getOrDefault("FLINK_JOB_PARALLELISM", "2"));
         long openThreshold = Long.parseLong(System.getenv().getOrDefault("ANOMALY_OPEN_THRESHOLD", "1000"));
         long closeThreshold = Long.parseLong(System.getenv().getOrDefault("ANOMALY_CLOSE_THRESHOLD", "600"));
         long reAlertSeconds = Long.parseLong(System.getenv().getOrDefault("ANOMALY_REALERT_SECONDS", "15"));
         env.setParallelism(executionParallelism);
+        // Checkpointing config
+        env.enableCheckpointing(10_000L); // Checkpoint every 10 seconds
+        env.getCheckpointConfig().setCheckpointingConsistencyMode(CheckpointingMode.EXACTLY_ONCE);
+        env.getCheckpointConfig().setCheckpointTimeout(60_000L);
+        env.getCheckpointConfig().setMinPauseBetweenCheckpoints(5_000L);
+        env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
 
         // Custom deserializer for CDC events
         DebeziumDeserializationSchema<Event> deserializer = new EventDebeziumDeserializationSchema();

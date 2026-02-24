@@ -1,11 +1,8 @@
 package com.github.NFMdev.cdia.ingestion_service.model.event;
 
-import com.github.NFMdev.cdia.ingestion_service.model.anomaly.AnomalyEntity;
 import com.github.NFMdev.cdia.ingestion_service.model.source_system.SourceSystemEntity;
-import com.vladmihalcea.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Type;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -16,7 +13,7 @@ import java.util.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"images", "metadata", "anomalies"})
+@ToString(exclude = {"images", "metadata"})
 public class EventEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -62,18 +59,5 @@ public class EventEntity {
     public void removeMetadata(EventMetadataEntity meta) {
         metadata.remove(meta);
         meta.setEvent(null);
-    }
-    
-    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<AnomalyEntity> anomalies = new HashSet<>();
-
-    public void addAnomaly(AnomalyEntity anomaly) {
-        anomalies.add(anomaly);
-        anomaly.setEvent(this);
-    }
-
-    public void removeAnomaly(AnomalyEntity anomaly) {
-        anomalies.remove(anomaly);
-        anomaly.setEvent(null);
     }
 }

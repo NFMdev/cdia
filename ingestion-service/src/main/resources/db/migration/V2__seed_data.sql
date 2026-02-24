@@ -12,7 +12,8 @@ INSERT INTO source_systems (name, description)
 VALUES
     ('CCTV-NorthGate', 'Camera at North Gate'),
     ('MobileApp', 'Citizen reporting app'),
-    ('IoT-Sensor-001', 'Environmental sensor in District 1');
+    ('IoT-Sensor-001', 'Environmental sensor in District 1'),
+    ('SIMULATOR', 'Simulated data source for testing');
 
 -- 3. Anomaly Labels
 INSERT INTO anomaly_labels (code, description)

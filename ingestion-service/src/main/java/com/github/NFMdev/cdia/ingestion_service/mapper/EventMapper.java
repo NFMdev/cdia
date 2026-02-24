@@ -19,9 +19,6 @@ public interface EventMapper {
         if (event.getImages() != null) {
             event.getImages().forEach(img -> img.setEvent(event));
         }
-        if (event.getAnomalies() != null) {
-            event.getAnomalies().forEach(anomaly -> anomaly.setEvent(event));
-        }
         if (event.getMetadata() != null) {
             event.getMetadata().forEach(meta -> meta.setEvent(event));
         }

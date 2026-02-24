@@ -1,6 +1,5 @@
 package com.github.NFMdev.cdia.ingestion_service.model.anomaly;
 
-import com.github.NFMdev.cdia.ingestion_service.model.event.EventEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,15 +12,11 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"event", "label"})
+@ToString(exclude = {"label"})
 public class AnomalyEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @ManyToOne
-    @JoinColumn(name = "event_id", nullable = false)
-    private EventEntity event;
 
     @ManyToOne
     @JoinColumn(name = "label_id")
@@ -37,6 +32,12 @@ public class AnomalyEntity {
     private String severity;
 
     private String description;
+
+    @Column(name="first_event_id")
+    private Long firstEventId;
+
+    @Column(name="last_event_id")
+    private Long lastEventId;
 
     @Override
     public boolean equals(Object o) {

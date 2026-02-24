@@ -163,6 +163,9 @@ services:
       start_period: 15s
     volumes:
       - ./processing-service/target/processing-service.jar:/opt/flink/usrlib/processing-service.jar:ro
+      - ./flink/data/checkpoints:/flink-checkpoints
+      - ./flink/data/savepoints:/flink-savepoints
+      - ./flink/conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
     networks:
       - cdia-net
 
@@ -189,5 +192,9 @@ services:
       timeout: 3s
       retries: 20
       start_period: 20s
+    volumes:
+      - ./flink/data/checkpoints:/flink-checkpoints
+      - ./flink/data/savepoints:/flink-savepoints
+      - ./flink/conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
     networks:
       - cdia-net

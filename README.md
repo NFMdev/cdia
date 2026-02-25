@@ -33,7 +33,7 @@
 
 ## 🎯 Overview
 
-CDIA-XCI simulates a **crime analytics platform** that:
+CDIA simulates a **crime analytics platform** that:
 - Ingests suspicious activity reports (events) via REST API
 - Stores structured data in PostgreSQL
 - Processes event streams in real-time using Apache Flink
@@ -177,7 +177,7 @@ This project was created to demonstrate:
 ## 📂 Project Structure
 
 ```
-CDIA-XCI-project/
+CDIA/
 ├── common/                          # Shared module
 │   └── src/main/java/.../dto/      # Data Transfer Objects
 │       ├── EventDto.java
@@ -252,8 +252,8 @@ CDIA-XCI-project/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/NFMdev/CDIA-XCI-project.git
-   cd CDIA-XCI-project
+   git clone https://github.com/NFMdev/CDIA.git
+   cd CDIA
    ```
 
 2. **Run the complete pipeline**

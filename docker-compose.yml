@@ -7,6 +7,8 @@ networks:
 volumes:
   postgres_data:
   es_data:
+  flink-checkpoints:
+  flink-savepoints:
 
 services:
   postgres:
@@ -138,19 +140,43 @@ services:
     networks:
       - cdia-net
 
+  flink-init-perms:
+    image: flink:1.20.3-scala_2.12-java17
+    pull_policy: if_not_present
+    container_name: flink-init-perms
+    profiles: ["streaming"]
+    user: "0:0"
+    entrypoint: ["/bin/bash","-lc"]
+    command: 
+      - |
+        set -euxo pipefail;
+        echo "== whoami =="; whoami; id;
+        echo "== mounts =="; mount | grep -E 'flink-checkpoints|flink-savepoints' || true;
+        echo "== ls before =="; ls -ld /flink-checkpoints /flink-savepoints || true;
+        echo "== id flink =="; id flink;
+        mkdir -p /flink-checkpoints /flink-savepoints;
+        chown -R flink:flink /flink-checkpoints /flink-savepoints;
+        echo "== ls after =="; ls -ld /flink-checkpoints /flink-savepoints;
+    volumes:
+      - flink-checkpoints:/flink-checkpoints
+      - flink-savepoints:/flink-savepoints
+    networks:
+      - cdia-net
+
   flink-jobmanager:
     image: flink:1.20.3-scala_2.12-java17
     pull_policy: if_not_present
     container_name: flink-jobmanager
     profiles: ["streaming"]
+    depends_on:
+      flink-init-perms:
+        condition: service_completed_successfully
     environment:
       JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
       FLINK_JOB_PARALLELISM: 2
       ANOMALY_OPEN_THRESHOLD: 1000
       ANOMALY_CLOSE_THRESHOLD: 600
       ANOMALY_REALERT_SECONDS: 15
-      FLINK_PROPERTIES: |
-        parallelism.default: 2
     ports:
       - "8081:8081"
       - "6123:6123"
@@ -163,8 +189,8 @@ services:
       start_period: 15s
     volumes:
       - ./processing-service/target/processing-service.jar:/opt/flink/usrlib/processing-service.jar:ro
-      - ./flink/data/checkpoints:/flink-checkpoints
-      - ./flink/data/savepoints:/flink-savepoints
+      - flink-checkpoints:/flink-checkpoints
+      - flink-savepoints:/flink-savepoints
       - ./flink/conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
     networks:
       - cdia-net
@@ -177,24 +203,24 @@ services:
     depends_on:
       flink-jobmanager:
         condition: service_healthy
+      flink-init-perms:
+        condition: service_completed_successfully
     environment:
       JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
       FLINK_JOB_PARALLELISM: 2
       ANOMALY_OPEN_THRESHOLD: 1000
       ANOMALY_CLOSE_THRESHOLD: 600
       ANOMALY_REALERT_SECONDS: 15
-      FLINK_PROPERTIES: |
-        taskmanager.numberOfTaskSlots: 2
     command: taskmanager
     healthcheck:
       test: ["CMD-SHELL", "ps -ef | grep -q '[T]askManagerRunner'"]
       interval: 10s
       timeout: 3s
       retries: 20
-      start_period: 20s
+      start_period: 20s  
     volumes:
-      - ./flink/data/checkpoints:/flink-checkpoints
-      - ./flink/data/savepoints:/flink-savepoints
+      - flink-checkpoints:/flink-checkpoints
+      - flink-savepoints:/flink-savepoints
       - ./flink/conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
     networks:
       - cdia-net

@@ -8,7 +8,6 @@ import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring", uses = {
         ImageMapper.class,
-        AnomalyMapper.class,
         SourceSystemMapper.class
 })
 public interface EventMapper {

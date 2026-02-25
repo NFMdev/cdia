@@ -1,5 +1,13 @@
-state.checkpoints.dir: file:///flink-checkpoints
-state.savepoints.dir: file:///flink-savepoints
-restart-strategy: fixed-delay
+blob.server.port: 6124
+taskmanager.memory.process.size: 1728m
+jobmanager.rpc.address: flink-jobmanager
 restart-strategy.fixed-delay.attempts: 10
+jobmanager.memory.process.size: 1600m
+state.savepoints.dir: file:///flink-savepoints
+query.server.port: 6125
 restart-strategy.fixed-delay.delay: 10s
+parallelism.default: 2
+taskmanager.numberOfTaskSlots: 2
+restart-strategy: fixed-delay
+env.java.opts.all: --add-opens=java.base/java.util=ALL-UNNAMED
+state.checkpoints.dir: file:///flink-checkpoints

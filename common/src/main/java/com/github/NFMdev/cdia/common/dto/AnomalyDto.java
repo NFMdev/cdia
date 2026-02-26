@@ -12,11 +12,12 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 public class AnomalyDto {
-    private Long id;
+    private String id;
     private String label;
     private String description;
     private LocalDateTime detectedAt;
     private Double confidenceScore;
-
-    private Long eventId;
+    private String severity;
+    private Long firstEventId;
+    private Long lastEventId;
 }

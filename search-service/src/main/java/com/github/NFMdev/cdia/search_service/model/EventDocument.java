@@ -33,8 +33,5 @@ public class EventDocument {
     @Field(type = FieldType.Object)
     private Map<String, Object> metadata;
 
-    @Field(type = FieldType.Nested)
-    private List<String> anomalies;
-
 
 }

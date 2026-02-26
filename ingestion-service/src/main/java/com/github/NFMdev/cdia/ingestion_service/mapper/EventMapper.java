@@ -8,7 +8,6 @@ import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring", uses = {
         ImageMapper.class,
-        AnomalyMapper.class,
         SourceSystemMapper.class
 })
 public interface EventMapper {
@@ -18,9 +17,6 @@ public interface EventMapper {
         System.out.println("Setting child relations for event " + event.getId());
         if (event.getImages() != null) {
             event.getImages().forEach(img -> img.setEvent(event));
-        }
-        if (event.getAnomalies() != null) {
-            event.getAnomalies().forEach(anomaly -> anomaly.setEvent(event));
         }
         if (event.getMetadata() != null) {
             event.getMetadata().forEach(meta -> meta.setEvent(event));

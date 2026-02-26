@@ -8,11 +8,9 @@ import org.mapstruct.Mapping;
 
 @Mapper(config = MapperConfig.class)
 public interface AnomalyMapper {
-    @Mapping(source = "event.id", target = "eventId")
     @Mapping(source = "label.code", target = "label")
     AnomalyDto toDto(AnomalyEntity anomalyEntity);
 
-    @Mapping(source = "eventId", target = "event.id")
     @Mapping(source = "label", target = "label.code")
     AnomalyEntity toEntity(AnomalyDto anomalyDto);
 }

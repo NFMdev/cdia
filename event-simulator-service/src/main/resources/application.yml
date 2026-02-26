@@ -1,8 +1,8 @@
 server:
-  port: 8090
+  port: 8082
 
 simulator:
-  target-url: "http://localhost:8080/events"
+  target-url: ${SIMULATOR_TARGET_URL:http://localhost:8080/events}
   events-per-second: 50
   concurrency: 16
   seed: 42

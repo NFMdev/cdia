@@ -57,12 +57,13 @@ CREATE TABLE anomaly_labels (
 -- ANOMALIES
 CREATE TABLE anomalies (
     id BIGSERIAL PRIMARY KEY,
-    event_id BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     label_id INT REFERENCES anomaly_labels(id),
     detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     confidence_score NUMERIC(5,2),
     severity VARCHAR(20),
-    description TEXT
+    description TEXT,
+    first_event_id BIGINT REFERENCES events(id),
+    last_event_id BIGINT REFERENCES events(id)
 );
 
 -- USER-EVENT RELATIONSHIP

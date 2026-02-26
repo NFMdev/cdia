@@ -8,9 +8,9 @@ spring:
         enabled: true
 
   elasticsearch:
-    uris: http://cdia-elasticsearch:9200
-    username: elastic
-    password: test
+    uris: ${SPRING_ELASTICSEARCH_URIS:http://localhost:9200}
+    username: ${SPRING_ELASTICSEARCH_USERNAME:elastic}
+    password: ${SPRING_ELASTICSEARCH_PASSWORD:test}
     connection-timeout: 5s
     socket-timeout: 30s
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
+
+ELASTIC_PASSWORD="${ELASTIC_PASSWORD:-test}"
 
 echo "⏳ Waiting for PostgreSQL..."
 until docker exec postgres pg_isready -U admin > /dev/null 2>&1; do
@@ -8,13 +10,13 @@ done
 echo "✅ PostgreSQL ready."
 
 echo "⏳ Waiting for Elasticsearch..."
-until curl -s http://localhost:9200/_cluster/health?wait_for_status=yellow > /dev/null; do
+until curl -fsS -u "elastic:${ELASTIC_PASSWORD}" "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s" > /dev/null; do
   sleep 2
 done
 echo "✅ Elasticsearch ready."
 
 echo "⏳ Waiting for ingestion-service..."
-until curl -s http://localhost:8080/actuator/health > /dev/null; do
+until curl -fsS http://localhost:8080/events > /dev/null; do
   sleep 2
 done
 echo "✅ ingestion-service ready."

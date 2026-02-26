@@ -5,13 +5,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.sql.Timestamp;
-import java.util.UUID;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class EventAnomaly {
-    private UUID id;
+    private String id;
     private String location;
     public long eventCount;
     public Timestamp windowStart;
@@ -19,5 +18,8 @@ public class EventAnomaly {
     public Timestamp detectedAt;
     public String rule;
     public String severity;
+    public String alertState;
     public String description;
+    public Long firstEventId;
+    public Long lastEventId;
 }

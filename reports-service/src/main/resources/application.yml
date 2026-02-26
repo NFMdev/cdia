@@ -9,9 +9,9 @@ spring:
     cache: false
 
   datasource:
-    url: jdbc:postgresql://postgres:5432/crime_analytics
-    username: admin
-    password: admin
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/crime_analytics}
+    username: ${SPRING_DATASOURCE_USERNAME:admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:admin}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -24,9 +24,9 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
   elasticsearch:
-    uris: http://cdia-elasticsearch:9200
-    username: elastic
-    password: test
+    uris: ${SPRING_ELASTICSEARCH_URIS:http://localhost:9200}
+    username: ${SPRING_ELASTICSEARCH_USERNAME:elastic}
+    password: ${SPRING_ELASTICSEARCH_PASSWORD:test}
 
 management:
   endpoints:

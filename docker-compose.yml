@@ -104,9 +104,9 @@ services:
     ports:
       - "8085:8085"
     working_dir: /app
-    command: ["java", "-jar", "/app/search-service.jar"]
+    command: ["java", "-jar", "/app/search-service-exec.jar"]
     volumes:
-      - ./search-service/target/search-service.jar:/app/search-service.jar:ro
+      - ./search-service/target/search-service-exec.jar:/app/search-service-exec.jar:ro
     environment:
       SPRING_ELASTICSEARCH_URIS: http://cdia-elasticsearch:9200
       SPRING_ELASTICSEARCH_USERNAME: elastic
@@ -127,9 +127,9 @@ services:
     ports:
       - "8084:8084"
     working_dir: /app
-    command: ["java", "-jar", "/app/reports-service.jar"]
+    command: ["java", "-jar", "/app/reports-service-exec.jar"]
     volumes:
-      - ./reports-service/target/reports-service.jar:/app/reports-service.jar:ro
+      - ./reports-service/target/reports-service-exec.jar:/app/reports-service-exec.jar:ro
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crime_analytics
       SPRING_DATASOURCE_USERNAME: admin
@@ -137,6 +137,25 @@ services:
       SPRING_ELASTICSEARCH_URIS: http://cdia-elasticsearch:9200
       SPRING_ELASTICSEARCH_USERNAME: elastic
       SPRING_ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:-test}
+    networks:
+      - cdia-net
+
+  event-simulator-service:
+    image: eclipse-temurin:21-jre
+    pull_policy: if_not_present
+    container_name: event-simulator-service
+    profiles: ["apps"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    working_dir: /app
+    command: ["java", "-jar", "/app/event-simulator-service-exec.jar"]
+    volumes:
+      - ./event-simulator-service/target/event-simulator-service-exec.jar:/app/event-simulator-service-exec.jar:ro
+    environment:
+      SIMULATOR_TARGET_URL: http://ingestion-service:8080/events
     networks:
       - cdia-net
 
@@ -165,6 +184,7 @@ services:
 
   flink-jobmanager:
     image: flink:1.20.3-scala_2.12-java17
+    restart: unless-stopped
     pull_policy: if_not_present
     container_name: flink-jobmanager
     profiles: ["streaming"]
@@ -197,6 +217,7 @@ services:
 
   flink-taskmanager:
     image: flink:1.20.3-scala_2.12-java17
+    restart: unless-stopped
     pull_policy: if_not_present
     container_name: flink-taskmanager
     profiles: ["streaming"]

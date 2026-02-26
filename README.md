@@ -161,6 +161,7 @@ This project was created to demonstrate:
 | **processing-service** | - | Flink jobs for stream processing | PostgreSQL, Flink |
 | **search-service** | 8085 | Search and query events | Elasticsearch |
 | **reports-service** | 8084 | Generate reports and dashboards | PostgreSQL, Elasticsearch |
+| **event-simulator-service** | 8082 | Generate synthetic events and send them to ingestion-service | ingestion-service |
 | **common** | - | Shared DTOs and utilities | - |
 
 ### Infrastructure Components
@@ -221,8 +222,14 @@ CDIA/
 │       ├── controller/              # Report endpoints
 │       └── service/                 # Report generation logic
 │
+├── event-simulator-service/         # Event traffic generator
+│   └── src/main/java/
+│       ├── controller/              # Simulator control endpoints
+│       └── simulator/               # Generation engine and config
+│
 ├── scripts/                         # Automation scripts
-│   ├── run-pipeline.sh             # Full pipeline startup
+│   ├── bootstrap-pipeline.sh       # Full build + startup (slow)
+│   ├── run-pipeline.sh             # Fast startup (no build)
 │   ├── wait-for-services.sh        # Health check script
 │   └── submit-job.sh               # Submit Flink jobs
 │
@@ -256,10 +263,17 @@ CDIA/
    cd CDIA
    ```
 
-2. **Run the complete pipeline**
+2. **Fast start (recommended)**
    ```bash
-   chmod +x scripts/run-pipeline.sh
-   ./scripts/run-pipeline.sh
+   docker compose --profile core --profile apps --profile streaming up -d
+   bash scripts/run-pipeline.sh
+   ```
+
+   This path starts containers, waits for readiness, and submits the Flink job.
+
+3. **First-time setup (or after code changes)**
+   ```bash
+   bash scripts/bootstrap-pipeline.sh
    ```
 
    This script will:
@@ -268,7 +282,7 @@ CDIA/
     - Wait for services to be healthy
     - Submit Flink processing jobs
 
-3. **Verify services are running**
+4. **Verify services are running**
    ```bash
    docker compose ps
    ```
@@ -285,14 +299,15 @@ CDIA/
    flink-taskmanager    Up
    ```
 
-4. **Access the services**
+5. **Access the services**
     - **Ingestion API**: http://localhost:8080/api/events
     - **Search API**: http://localhost:8085/api/search
     - **Reports API**: http://localhost:8084/api/reports
+    - **Event Simulator API**: http://localhost:8082/simulator/status
     - **Flink Dashboard**: http://localhost:8081
     - **Elasticsearch**: http://localhost:9200 (elastic/test)
 
-5. **Test with sample event**
+6. **Test with sample event**
    ```bash
    curl -X POST http://localhost:8080/api/events \\
      -H \"Content-Type: application/json\" \\
@@ -493,177 +508,36 @@ docker-compose down -v  # Remove volumes
 
 ## 🔄 Pipeline Flow
 
-The `scripts/run-pipeline.sh` script orchestrates the complete system startup:
+You now have two script modes:
 
-### Pipeline Execution Steps
-
-```bash
-./scripts/run-pipeline.sh
-```
-
-#### Step 1: Build Services
+### 1) Fast run (daily use)
 
 ```bash
-# Build all services except processing-service (Java 21)
-docker run --rm -v \"$(pwd):/app\" -w /app maven:3.9-eclipse-temurin-21 \\
-  mvn clean package -DskipTests -pl '!processing-service'
-
-# Build processing-service separately (Java 17 for Flink compatibility)
-docker run --rm -v \"$(pwd)/processing-service:/app\" -w /app \\
-  maven:3.9-eclipse-temurin-17 \\
-  mvn clean package -DskipTests
+docker compose --profile core --profile apps --profile streaming up -d
+bash ./scripts/run-pipeline.sh
 ```
 
-**Why separate builds?**
-- Flink 1.20 requires Java 17
-- Other services use Java 21 features
-- Maven can't mix Java versions in single build
+What it does:
+- Starts/ensures all services are up
+- Waits for PostgreSQL, Elasticsearch, ingestion-service, and Flink JobManager
+- Submits the Flink `AnomalyJob`
 
-**Output:**
-- `ingestion-service/target/ingestion-service-0.0.6-SNAPSHOT.jar` (library)
-- `ingestion-service/target/ingestion-service-0.0.6-SNAPSHOT-exec.jar` (executable)
-- `search-service/target/search-service-0.0.6-SNAPSHOT.jar`
-- `reports-service/target/reports-service-0.0.6-SNAPSHOT.jar`
-- `processing-service/target/processing-service-0.0.6-SNAPSHOT.jar`
-
-#### Step 2: Start Infrastructure
+### 2) Full bootstrap (first run or after code changes)
 
 ```bash
-docker-compose up -d
+bash ./scripts/bootstrap-pipeline.sh
 ```
 
-Starts services in dependency order:
-1. **PostgreSQL** (base dependency)
-2. **Elasticsearch** (base dependency)
-3. **Flink JobManager** (coordinator)
-4. **Flink TaskManager** (worker)
-5. **Ingestion Service** (depends on Postgres + Elasticsearch)
-6. **Search Service** (depends on Elasticsearch health)
-7. **Reports Service** (depends on both databases)
+What it does:
+- Builds Java 21 services
+- Builds `processing-service` with Java 17 (Flink compatibility)
+- Runs the fast pipeline script afterward
 
-#### Step 3: Health Checks
+### Why this split
 
-```bash
-./scripts/wait-for-services.sh
-```
-
-Polls each service until healthy:
-
-```bash
-# PostgreSQL
-until docker exec postgres pg_isready -U admin > /dev/null 2>&1; do
-  sleep 2
-done
-
-# Elasticsearch
-until curl -s http://localhost:9200/_cluster/health?wait_for_status=yellow; do
-  sleep 2
-done
-
-# Ingestion Service
-until curl -s http://localhost:8080/actuator/health > /dev/null; do
-  sleep 2
-done
-
-# Flink JobManager
-until curl -s http://localhost:8081/jobs/overview > /dev/null; do
-  sleep 2
-done
-```
-
-**Why wait?**
-- Prevents race conditions
-- Ensures Flyway migrations complete
-- Verifies Elasticsearch indices are created
-- Confirms Flink cluster is ready
-
-#### Step 4: Submit Flink Job
-
-```bash
-docker exec -it flink-jobmanager flink run \\
-  -m flink-jobmanager:8081 \\
-  /opt/flink/usrlib/processing-service.jar \\
-  --job-class com.github.NFMdev.cdia.processing_service.flink.jobs.AnomalyJob
-```
-
-**What happens:**
-1. Job JAR is loaded into Flink cluster
-2. `AnomalyJob` main class is executed
-3. Flink creates execution plan
-4. Job is distributed to TaskManagers
-5. Processing begins immediately
-
-**Monitoring:**
-- View job status at http://localhost:8081
-- Check logs: `docker logs flink-jobmanager`
-
-#### Step 5: Verification
-
-The script outputs connection details:
-
-```
-🎉 Pipeline started successfully!
-🗄️  Postgres:          localhost:5432  (admin/admin)
-🔍 Elasticsearch:     http://localhost:9200  (elastic/test)
-🌊 Flink Dashboard:   http://localhost:8081
-💡 To stop everything: docker-compose down -v
-```
-
-### Pipeline Flow Diagram
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│              scripts/run-pipeline.sh                        │
-└─────────────────────────────────────────────────────────────┘
-                            │
-         ┌──────────────────┼──────────────────┐
-         ▼                  ▼                  ▼
-    ┌─────────┐      ┌──────────┐      ┌──────────┐
-    │ Build   │      │  Build   │      │  Build   │
-    │ Java 21 │      │ Java 17  │      │  Others  │
-    │Services │      │ Flink    │      │Services  │
-    └────┬────┘      └────┬─────┘      └────┬─────┘
-         │                │                  │
-         └────────────────┼──────────────────┘
-                          ▼
-                 ┌─────────────────┐
-                 │ docker-compose  │
-                 │     up -d       │
-                 └────────┬────────┘
-                          │
-              ┌───────────┼───────────┐
-              ▼           ▼           ▼
-       ┌──────────┐ ┌─────────┐ ┌─────────┐
-       │PostgreSQL│ │Elastic- │ │  Flink  │
-       │          │ │ search  │ │ Cluster │
-       └────┬─────┘ └────┬────┘ └────┬────┘
-            │            │           │
-            └────────────┼───────────┘
-                         ▼
-              ┌─────────────────────┐
-              │ wait-for-services.sh│
-              │  (Health Checks)    │
-              └──────────┬──────────┘
-                         │
-                    ┌────┼────┐
-                    ▼    ▼    ▼
-              ┌─────┐  ┌──┐  ┌────┐
-              │ ✓   │  │✓ │  │ ✓  │
-              │Ready│  │OK│  │Live│
-              └─────┘  └──┘  └────┘
-                         │
-                         ▼
-              ┌──────────────────┐
-              │  Submit Flink    │
-              │  Anomaly Job     │
-              └──────────────────┘
-                         │
-                         ▼
-              ┌──────────────────┐
-              │   System Ready   │
-              │  for Operations  │
-              └──────────────────┘
-```
+- Fast script is quick and suitable for demos/iterating.
+- Bootstrap script is deterministic for fresh setups.
+- People who prefer raw Docker can still just use `docker compose ...` directly.
 
 ---
 
@@ -778,6 +652,44 @@ GET /api/reports/dashboard?startDate=2024-01-01&endDate=2024-01-31
 ```http
 GET /api/reports/export?format=pdf&startDate=2024-01-01
 ```
+
+### Event Simulator Service (Port 8082)
+
+Service to generate artificial events and automatically send them to igestion endpoint (`/events`).
+
+#### Check simulator status
+```http
+GET /simulator/status
+```
+
+Response: `200 OK`
+```json
+{
+  "running": false,
+  "targetUrl": "http://ingestion-service:8080/events",
+  "eps": 50,
+  "concurrency": 16,
+  "burstEnabled": true
+}
+```
+
+#### Start simulator
+```http
+POST /simulator/start
+```
+
+#### Stop simulator
+```http
+POST /simulator/stop
+```
+
+#### Config (application.yml)
+
+- `SIMULATOR_TARGET_URL`: target URL for the ingestion.
+- `simulator.events-per-second`: base generation rate.
+- `simulator.concurrency`: number of concurrent workers.
+- `simulator.burst.*`: interval rate.
+- `simulator.probabilities.*`: metadata/images probability.
 
 ---
 

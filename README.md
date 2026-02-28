@@ -168,7 +168,7 @@ This project was created to demonstrate:
 
 | Component | Port | Credentials | Description |
 |-----------|------|-------------|-------------|
-| **PostgreSQL** | 5432 | admin/admin | Relational database |
+| **PostgreSQL** | 5432 | from `.env` (`cdia_migrations`/`cdia_app`/`cdia_metrics`) | Relational database |
 | **Elasticsearch** | 9200 | elastic/test | Search engine |
 | **Flink JobManager** | 8081 | - | Flink UI and job submission |
 | **Flink TaskManager** | - | - | Flink worker node |
@@ -263,7 +263,12 @@ CDIA/
    cd CDIA
    ```
 
-2. **Fast start (recommended)**
+2. **Create local env file**
+   ```bash
+   cp .env.example .env
+   ```
+
+3. **Fast start (recommended)**
    ```bash
    docker compose --profile core --profile apps --profile streaming up -d
    bash scripts/run-pipeline.sh
@@ -271,7 +276,7 @@ CDIA/
 
    This path starts containers, waits for readiness, and submits the Flink job.
 
-3. **First-time setup (or after code changes)**
+4. **First-time setup (or after code changes)**
    ```bash
    bash scripts/bootstrap-pipeline.sh
    ```
@@ -282,7 +287,7 @@ CDIA/
     - Wait for services to be healthy
     - Submit Flink processing jobs
 
-4. **Verify services are running**
+5. **Verify services are running**
    ```bash
    docker compose ps
    ```
@@ -299,7 +304,7 @@ CDIA/
    flink-taskmanager    Up
    ```
 
-5. **Access the services**
+6. **Access the services**
     - **Ingestion API**: http://localhost:8080/api/events
     - **Search API**: http://localhost:8085/api/search
     - **Reports API**: http://localhost:8084/api/reports
@@ -307,7 +312,7 @@ CDIA/
     - **Flink Dashboard**: http://localhost:8081
     - **Elasticsearch**: http://localhost:9200 (elastic/test)
 
-6. **Test with sample event**
+7. **Test with sample event**
    ```bash
    curl -X POST http://localhost:8080/api/events \\
      -H \"Content-Type: application/json\" \\
@@ -359,6 +364,25 @@ docker compose --profile core --profile streaming down
 
 Elasticsearch local defaults keep security enabled with user `elastic` and password `${ELASTIC_PASSWORD:-test}`.
 
+### Database Users and Local Env
+
+PostgreSQL access is split across three roles:
+- `cdia_app`: runtime DML for Spring Boot datasource connections
+- `cdia_migrations`: Flyway migrations and schema ownership (`public`)
+- `cdia_metrics`: monitoring-only role for `postgres-exporter` (`pg_monitor`)
+
+All credentials come from environment variables. Use `.env` for local development (gitignored), and keep `.env.example` as the committed template.
+
+Quick verification:
+
+```bash
+# confirm ingestion service starts and Flyway migrations run
+docker compose logs ingestion-service --tail=200 | rg -n "Flyway|Successfully applied|Started"
+
+# confirm postgres_exporter is serving metrics
+curl -fsS http://localhost:9187/metrics | head
+```
+
 ---
 
 ## 🐳 Docker Compose Configuration
@@ -378,9 +402,9 @@ The platform uses a custom bridge network (`cdia-net`) to enable:
 postgres:
   image: postgres:17
   environment:
-    POSTGRES_USER: admin
-    POSTGRES_PASSWORD: admin
-    POSTGRES_DB: crime_analytics
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: ${CDIA_MIGRATIONS_DB_PASSWORD}
+    POSTGRES_DB: ${POSTGRES_DB}
   command:
     - \"postgres\"
     - \"-c\" \"wal_level=logical\"      # Enable CDC
@@ -389,7 +413,7 @@ postgres:
   volumes:
     - postgres-data:/var/lib/postgresql/data
   healthcheck:
-    test: [\"CMD-SHELL\", \"pg_isready -U admin -d crime_analytics\"]
+    test: [\"CMD-SHELL\", \"pg_isready -U postgres -d ${POSTGRES_DB}\"]
     interval: 5s
     retries: 20
 ```
@@ -434,9 +458,13 @@ ingestion-service:
     - cdia-elasticsearch
   command: [\"java\", \"-jar\", \"/app/ingestion-service-exec.jar\"]
   environment:
-    SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crime_analytics
-    SPRING_DATASOURCE_USERNAME: admin
-    SPRING_DATASOURCE_PASSWORD: admin
+    POSTGRES_HOST: ${POSTGRES_HOST}
+    POSTGRES_PORT: ${POSTGRES_PORT}
+    POSTGRES_DB: ${POSTGRES_DB}
+    CDIA_APP_DB_USER: ${CDIA_APP_DB_USER}
+    CDIA_APP_DB_PASSWORD: ${CDIA_APP_DB_PASSWORD}
+    CDIA_MIGRATIONS_DB_USER: ${CDIA_MIGRATIONS_DB_USER}
+    CDIA_MIGRATIONS_DB_PASSWORD: ${CDIA_MIGRATIONS_DB_PASSWORD}
     ELASTICSEARCH_HOSTS: http://cdia-elasticsearch:9200
 ```
 
@@ -690,171 +718,3 @@ POST /simulator/stop
 - `simulator.concurrency`: number of concurrent workers.
 - `simulator.burst.*`: interval rate.
 - `simulator.probabilities.*`: metadata/images probability.
-
----
-
-[//]: # (## 🗄️ Database Schema)
-
-[//]: # ()
-[//]: # (### PostgreSQL Tables)
-
-[//]: # ()
-[//]: # (The schema is managed by Flyway migrations in `ingestion-service/src/main/resources/db/migration/`:)
-
-[//]: # ()
-[//]: # (#### V1__init.sql - Core Tables)
-
-[//]: # ()
-[//]: # (```sql)
-
-[//]: # (-- Users)
-
-[//]: # (CREATE TABLE users &#40;)
-
-[//]: # (    id SERIAL PRIMARY KEY,)
-
-[//]: # (    username VARCHAR&#40;50&#41; UNIQUE NOT NULL,)
-
-[//]: # (    email VARCHAR&#40;100&#41; UNIQUE NOT NULL,)
-
-[//]: # (    password_hash VARCHAR&#40;255&#41; NOT NULL,)
-
-[//]: # (    role VARCHAR&#40;20&#41; DEFAULT 'ANALYST',)
-
-[//]: # (    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)
-
-[//]: # (&#41;;)
-
-[//]: # ()
-[//]: # (-- Source Systems)
-
-[//]: # (CREATE TABLE source_systems &#40;)
-
-[//]: # (    id SERIAL PRIMARY KEY,)
-
-[//]: # (    name VARCHAR&#40;100&#41; UNIQUE NOT NULL,)
-
-[//]: # (    type VARCHAR&#40;50&#41;,)
-
-[//]: # (    description TEXT,)
-
-[//]: # (    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,)
-
-[//]: # (    api_endpoint VARCHAR&#40;200&#41;)
-
-[//]: # (&#41;;)
-
-[//]: # ()
-[//]: # (-- Events)
-
-[//]: # (CREATE TABLE events &#40;)
-
-[//]: # (    id BIGSERIAL PRIMARY KEY,)
-
-[//]: # (    source_id INT REFERENCES source_systems&#40;id&#41; ON DELETE SET NULL,)
-
-[//]: # (    description TEXT,)
-
-[//]: # (    location VARCHAR&#40;255&#41;,)
-
-[//]: # (    status VARCHAR&#40;20&#41; DEFAULT 'INGESTED',)
-
-[//]: # (    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)
-
-[//]: # (&#41;;)
-
-[//]: # ()
-[//]: # (-- Event Images)
-
-[//]: # (CREATE TABLE event_images &#40;)
-
-[//]: # (    id BIGSERIAL PRIMARY KEY,)
-
-[//]: # (    event_id BIGINT NOT NULL REFERENCES events&#40;id&#41; ON DELETE CASCADE,)
-
-[//]: # (    url TEXT NOT NULL)
-
-[//]: # (&#41;;)
-
-[//]: # ()
-[//]: # (-- Event Metadata &#40;Key-Value pairs&#41;)
-
-[//]: # (CREATE TABLE event_metadata &#40;)
-
-[//]: # (    id BIGSERIAL PRIMARY KEY,)
-
-[//]: # (    event_id BIGINT NOT NULL REFERENCES events&#40;id&#41; ON DELETE CASCADE,)
-
-[//]: # (    field_key VARCHAR&#40;100&#41; NOT NULL,)
-
-[//]: # (    field_value TEXT)
-
-[//]: # (&#41;;)
-
-[//]: # ()
-[//]: # (-- Anomaly Labels)
-
-[//]: # (CREATE TABLE anomaly_labels &#40;)
-
-[//]: # (    id SERIAL PRIMARY KEY,)
-
-[//]: # (    code VARCHAR&#40;50&#41; UNIQUE NOT NULL,)
-
-[//]: # (    description TEXT)
-
-[//]: # (&#41;;)
-
-[//]: # ()
-[//]: # (-- Anomalies)
-
-[//]: # (CREATE TABLE anomalies &#40;)
-
-[//]: # (    id BIGSERIAL PRIMARY KEY,)
-
-[//]: # (    event_id BIGINT NOT NULL REFERENCES events&#40;id&#41; ON DELETE CASCADE,)
-
-[//]: # (    label_id INT REFERENCES anomaly_labels&#40;id&#41;,)
-
-[//]: # (    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,)
-
-[//]: # (    confidence_score NUMERIC&#40;5,2&#41;,)
-
-[//]: # (    severity VARCHAR&#40;20&#41;,)
-
-[//]: # (    description TEXT)
-
-[//]: # (&#41;;)
-
-[//]: # ()
-[//]: # (-- User-Event Relationship &#40;for validations&#41;)
-
-[//]: # (CREATE TABLE user_events &#40;)
-
-[//]: # (    user_id INT REFERENCES users&#40;id&#41;,)
-
-[//]: # (    event_id BIGINT REFERENCES events&#40;id&#41;,)
-
-[//]: # (    operation VARCHAR&#40;50&#41;,)
-
-[//]: # (    validated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,)
-
-[//]: # (    PRIMARY KEY &#40;user_id, event_id&#41;)
-
-[//]: # (&#41;;)
-
-[//]: # ()
-[//]: # (-- Audit Logs)
-
-[//]: # (CREATE TABLE audit_logs &#40;)
-
-[//]: # (    id BIGSERIAL PRIMARY KEY,)
-
-[//]: # (    user_id INT REFERENCES users&#40;id&#41;,)
-
-[//]: # (    operation VARCHAR&#40;100&#41; NOT NULL,)
-
-[//]: # (    entity_type VARCHAR&#40;50&#41; NOT NULL,)
-
-[//]: # (    entity_id`)
-
-[//]: # (})

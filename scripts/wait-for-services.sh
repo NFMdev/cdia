@@ -2,9 +2,11 @@
 set -euo pipefail
 
 ELASTIC_PASSWORD="${ELASTIC_PASSWORD:-test}"
+POSTGRES_DB="${POSTGRES_DB:-cdia}"
+CDIA_MIGRATIONS_DB_USER="${CDIA_MIGRATIONS_DB_USER:-cdia_migrations}"
 
 echo "⏳ Waiting for PostgreSQL..."
-until docker exec postgres pg_isready -U admin > /dev/null 2>&1; do
+until docker exec postgres pg_isready -U "${CDIA_MIGRATIONS_DB_USER}" -d "${POSTGRES_DB}" > /dev/null 2>&1; do
   sleep 2
 done
 echo "✅ PostgreSQL ready."

@@ -5,15 +5,22 @@ spring:
   application:
     name: ingestion-service
 
+  config:
+    import: "optional:file:.env[.properties],optional:file:../.env[.properties]"
+
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/crime_analytics}
-    username: ${SPRING_DATASOURCE_USERNAME:admin}
-    password: ${SPRING_DATASOURCE_PASSWORD:admin}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:cdia}
+    username: ${CDIA_APP_DB_USER:cdia_app}
+    password: ${CDIA_APP_DB_PASSWORD:change_me_app}
     driver-class-name: org.postgresql.Driver
+
+  flyway:
+    user: ${CDIA_MIGRATIONS_DB_USER:cdia_migrations}
+    password: ${CDIA_MIGRATIONS_DB_PASSWORD:change_me_migrations}
 
   jpa:
     hibernate:
-      ddl-auto: update   # change to "validate" in prod
+      ddl-auto: none   # schema is managed by Flyway (migrations role owns DDL)
     show-sql: true
     properties:
       hibernate:
@@ -24,4 +31,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
+  endpoint:
+    prometheus:
+      enabled: true

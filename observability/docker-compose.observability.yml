@@ -1,0 +1,58 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: cdia-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks: [cdia-net]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: cdia-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks: [cdia-net]
+    depends_on: [prometheus]
+
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: cdia-postgres-exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${CDIA_METRICS_DB_USER:-cdia_metrics}:${CDIA_METRICS_DB_PASSWORD:-change_me_metrics}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-cdia}?sslmode=disable
+    ports:
+      - "9187:9187"
+    networks: [cdia-net]
+    depends_on: [postgres]
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cdia-cadvisor
+    ports:
+      - "8089:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks: [cdia-net]
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  cdia:
+    external: true

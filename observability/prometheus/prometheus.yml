@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: "ingestion-service"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["ingestion-service:8080"]
+
+  - job_name: "event-simulator"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["event-simulator-service:8082"]
+
+  - job_name: "flink-jobmanager"
+    static_configs:
+      - targets: ["flink-jobmanager:8081"]
+
+  - job_name: "flink-taskmanager"
+    static_configs:
+      - targets: ["flink-taskmanager:8081"]

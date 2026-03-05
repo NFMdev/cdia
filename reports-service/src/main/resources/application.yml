@@ -5,13 +5,16 @@ spring:
   application:
     name: reports-service
 
+  config:
+    import: "optional:file:.env[.properties],optional:file:../.env[.properties]"
+
   thymeleaf:
     cache: false
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/crime_analytics}
-    username: ${SPRING_DATASOURCE_USERNAME:admin}
-    password: ${SPRING_DATASOURCE_PASSWORD:admin}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:cdia}
+    username: ${CDIA_APP_DB_USER:cdia_app}
+    password: ${CDIA_APP_DB_PASSWORD:change_me_app}
     driver-class-name: org.postgresql.Driver
 
   jpa:

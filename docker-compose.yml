@@ -15,11 +15,17 @@ services:
     image: postgres:16-alpine
     pull_policy: if_not_present
     container_name: postgres
-    profiles: ["core"]
+    profiles: ["core", "all"]
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin
-      POSTGRES_DB: crime_analytics
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERPASS:-change_me_superpass}
+      POSTGRES_DB: ${POSTGRES_DB:-cdia}
+      CDIA_APP_DB_USER: ${CDIA_APP_DB_USER:-cdia_app}
+      CDIA_APP_DB_PASSWORD: ${CDIA_APP_DB_PASSWORD:-change_me_app}
+      CDIA_MIGRATIONS_DB_USER: ${CDIA_MIGRATIONS_DB_USER:-cdia_migrations}
+      CDIA_MIGRATIONS_DB_PASSWORD: ${CDIA_MIGRATIONS_DB_PASSWORD:-change_me_migrations}
+      CDIA_METRICS_DB_USER: ${CDIA_METRICS_DB_USER:-cdia_metrics}
+      CDIA_METRICS_DB_PASSWORD: ${CDIA_METRICS_DB_PASSWORD:-change_me_metrics}
     ports:
       - "5432:5432"
     command:
@@ -36,7 +42,7 @@ services:
     networks:
       - cdia-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d crime_analytics"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-cdia}"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -46,7 +52,7 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.2
     pull_policy: if_not_present
     container_name: cdia-elasticsearch
-    profiles: ["core"]
+    profiles: ["core", "all"]
     environment:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-test}
       xpack.security.enabled: "true"
@@ -71,7 +77,7 @@ services:
     image: eclipse-temurin:21-jre
     pull_policy: if_not_present
     container_name: ingestion-service
-    profiles: ["apps"]
+    profiles: ["apps", "all"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,9 +90,13 @@ services:
     volumes:
       - ./ingestion-service/target/ingestion-service-exec.jar:/app/ingestion-service-exec.jar:ro
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crime_analytics
-      SPRING_DATASOURCE_USERNAME: admin
-      SPRING_DATASOURCE_PASSWORD: admin
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-cdia}
+      CDIA_APP_DB_USER: ${CDIA_APP_DB_USER:-cdia_app}
+      CDIA_APP_DB_PASSWORD: ${CDIA_APP_DB_PASSWORD:-change_me_app}
+      CDIA_MIGRATIONS_DB_USER: ${CDIA_MIGRATIONS_DB_USER:-cdia_migrations}
+      CDIA_MIGRATIONS_DB_PASSWORD: ${CDIA_MIGRATIONS_DB_PASSWORD:-change_me_migrations}
       SPRING_ELASTICSEARCH_URIS: http://cdia-elasticsearch:9200
       SPRING_ELASTICSEARCH_USERNAME: elastic
       SPRING_ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:-test}
@@ -97,7 +107,7 @@ services:
     image: eclipse-temurin:21-jre
     pull_policy: if_not_present
     container_name: search-service
-    profiles: ["apps"]
+    profiles: ["apps", "all"]
     depends_on:
       cdia-elasticsearch:
         condition: service_healthy
@@ -118,7 +128,7 @@ services:
     image: eclipse-temurin:21-jre
     pull_policy: if_not_present
     container_name: reports-service
-    profiles: ["apps"]
+    profiles: ["apps", "all"]
     depends_on:
       cdia-elasticsearch:
         condition: service_healthy
@@ -131,9 +141,11 @@ services:
     volumes:
       - ./reports-service/target/reports-service-exec.jar:/app/reports-service-exec.jar:ro
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crime_analytics
-      SPRING_DATASOURCE_USERNAME: admin
-      SPRING_DATASOURCE_PASSWORD: admin
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-cdia}
+      CDIA_APP_DB_USER: ${CDIA_APP_DB_USER:-cdia_app}
+      CDIA_APP_DB_PASSWORD: ${CDIA_APP_DB_PASSWORD:-change_me_app}
       SPRING_ELASTICSEARCH_URIS: http://cdia-elasticsearch:9200
       SPRING_ELASTICSEARCH_USERNAME: elastic
       SPRING_ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:-test}
@@ -144,7 +156,7 @@ services:
     image: eclipse-temurin:21-jre
     pull_policy: if_not_present
     container_name: event-simulator-service
-    profiles: ["apps"]
+    profiles: ["apps", "all"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -163,7 +175,7 @@ services:
     image: flink:1.20.3-scala_2.12-java17
     pull_policy: if_not_present
     container_name: flink-init-perms
-    profiles: ["streaming"]
+    profiles: ["streaming", "all"]
     user: "0:0"
     entrypoint: ["/bin/bash","-lc"]
     command: 
@@ -187,7 +199,7 @@ services:
     restart: unless-stopped
     pull_policy: if_not_present
     container_name: flink-jobmanager
-    profiles: ["streaming"]
+    profiles: ["streaming", "all"]
     depends_on:
       flink-init-perms:
         condition: service_completed_successfully
@@ -197,6 +209,11 @@ services:
       ANOMALY_OPEN_THRESHOLD: 1000
       ANOMALY_CLOSE_THRESHOLD: 600
       ANOMALY_REALERT_SECONDS: 15
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-cdia}
+      CDIA_MIGRATIONS_DB_USER: ${CDIA_MIGRATIONS_DB_USER:-cdia_migrations}
+      CDIA_MIGRATIONS_DB_PASSWORD: ${CDIA_MIGRATIONS_DB_PASSWORD:-change_me_migrations}
     ports:
       - "8081:8081"
       - "6123:6123"
@@ -212,6 +229,8 @@ services:
       - flink-checkpoints:/flink-checkpoints
       - flink-savepoints:/flink-savepoints
       - ./flink/conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+    expose:
+      - "9249"
     networks:
       - cdia-net
 
@@ -220,7 +239,7 @@ services:
     restart: unless-stopped
     pull_policy: if_not_present
     container_name: flink-taskmanager
-    profiles: ["streaming"]
+    profiles: ["streaming", "all"]
     depends_on:
       flink-jobmanager:
         condition: service_healthy
@@ -232,6 +251,11 @@ services:
       ANOMALY_OPEN_THRESHOLD: 1000
       ANOMALY_CLOSE_THRESHOLD: 600
       ANOMALY_REALERT_SECONDS: 15
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-cdia}
+      CDIA_MIGRATIONS_DB_USER: ${CDIA_MIGRATIONS_DB_USER:-cdia_migrations}
+      CDIA_MIGRATIONS_DB_PASSWORD: ${CDIA_MIGRATIONS_DB_PASSWORD:-change_me_migrations}
     command: taskmanager
     healthcheck:
       test: ["CMD-SHELL", "ps -ef | grep -q '[T]askManagerRunner'"]
@@ -243,5 +267,7 @@ services:
       - flink-checkpoints:/flink-checkpoints
       - flink-savepoints:/flink-savepoints
       - ./flink/conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+    expose:
+      - "9249"
     networks:
       - cdia-net

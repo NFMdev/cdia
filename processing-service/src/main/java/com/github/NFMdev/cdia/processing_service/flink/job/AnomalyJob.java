@@ -18,6 +18,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.http.HttpHost;
 
 import java.time.Duration;
+import java.util.Properties;
 
 public class AnomalyJob {
 
@@ -28,6 +29,16 @@ public class AnomalyJob {
         long openThreshold = Long.parseLong(System.getenv().getOrDefault("ANOMALY_OPEN_THRESHOLD", "1000"));
         long closeThreshold = Long.parseLong(System.getenv().getOrDefault("ANOMALY_CLOSE_THRESHOLD", "600"));
         long reAlertSeconds = Long.parseLong(System.getenv().getOrDefault("ANOMALY_REALERT_SECONDS", "15"));
+        String postgresHost = System.getenv().getOrDefault("POSTGRES_HOST", "postgres");
+        int postgresPort = Integer.parseInt(System.getenv().getOrDefault("POSTGRES_PORT", "5432"));
+        String postgresDb = System.getenv().getOrDefault("POSTGRES_DB", "cdia");
+        String postgresUser = System.getenv().getOrDefault("CDIA_MIGRATIONS_DB_USER", "cdia_migrations");
+        String postgresPassword = System.getenv().getOrDefault("CDIA_MIGRATIONS_DB_PASSWORD", "change_me_migrations");
+        String postgresPublication = System.getenv().getOrDefault("POSTGRES_PUBLICATION_NAME", "flink_publication");
+        String postgresPublicationAutocreateMode = System.getenv().getOrDefault(
+                "POSTGRES_PUBLICATION_AUTOCREATE_MODE",
+                "filtered"
+        );
         env.setParallelism(executionParallelism);
         // Checkpointing config
         env.enableCheckpointing(10_000L); // Checkpoint every 10 seconds
@@ -38,18 +49,22 @@ public class AnomalyJob {
 
         // Custom deserializer for CDC events
         DebeziumDeserializationSchema<Event> deserializer = new EventDebeziumDeserializationSchema();
+        Properties debeziumProperties = new Properties();
+        debeziumProperties.setProperty("publication.name", postgresPublication);
+        debeziumProperties.setProperty("publication.autocreate.mode", postgresPublicationAutocreateMode);
 
         // CDC source
         JdbcIncrementalSource<Event> postgresSource = PostgresSourceBuilder.PostgresIncrementalSource.<Event>builder()
-                .hostname("postgres")
-                .port(5432)
-                .database("crime_analytics")
+                .hostname(postgresHost)
+                .port(postgresPort)
+                .database(postgresDb)
                 .tableList("public.events")
-                .username("admin")
-                .password("admin")
+                .username(postgresUser)
+                .password(postgresPassword)
                 .slotName("flink")
                 .decodingPluginName("pgoutput")
                 .startupOptions(StartupOptions.latest())
+                .debeziumProperties(debeziumProperties)
                 .deserializer(deserializer)
                 .build();
 

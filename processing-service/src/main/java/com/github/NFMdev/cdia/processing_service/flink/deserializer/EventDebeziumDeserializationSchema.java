@@ -30,12 +30,16 @@ public class EventDebeziumDeserializationSchema implements DebeziumDeserializati
             if (createdAt == null) {
                 return;
             }
+            Long eventId = parseDebeziumLong(after.get("id"));
+            if (eventId == null) {
+                return;
+            }
 
             Event event = new Event(
-                    after.getInt64("id"),
+                    eventId,
                     after.getString("description"),
                     after.getString("location"),
-                    after.getInt64("source_id"),
+                    parseDebeziumLong(after.get("source_id")),
                     createdAt
             );
             collector.collect(event);
@@ -72,5 +76,18 @@ public class EventDebeziumDeserializationSchema implements DebeziumDeserializati
         }
 
         return new Timestamp(raw * 1_000L);
+    }
+
+    private Long parseDebeziumLong(Object rawValue) {
+        if (rawValue == null) {
+            return null;
+        }
+        if (rawValue instanceof Number numericValue) {
+            return numericValue.longValue();
+        }
+        if (rawValue instanceof String stringValue) {
+            return Long.parseLong(stringValue);
+        }
+        throw new IllegalArgumentException("Unsupported Debezium numeric type: " + rawValue.getClass());
     }
 }

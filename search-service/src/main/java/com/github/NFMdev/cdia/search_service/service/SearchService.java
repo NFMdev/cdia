@@ -1,6 +1,5 @@
 package com.github.NFMdev.cdia.search_service.service;
 
-import com.github.NFMdev.cdia.search_service.mapper.EventDocumentMapper;
 import com.github.NFMdev.cdia.search_service.model.EventAnomalyDocument;
 import com.github.NFMdev.cdia.search_service.model.EventDocument;
 import com.github.NFMdev.cdia.search_service.repository.EventAnomalyRepository;
@@ -16,7 +15,6 @@ public class SearchService {
 
     private final EventDocumentRepository eventDocumentRepository;
     private final EventAnomalyRepository eventAnomalyRepository;
-    private final EventDocumentMapper eventDocumentMapper;
 
     public EventDocument index(EventDocument document) {
         return eventDocumentRepository.save(document);

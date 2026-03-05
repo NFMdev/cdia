@@ -10,7 +10,8 @@ services:
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
-    networks: [cdia-net]
+    networks:
+      - cdia-net
 
   grafana:
     image: grafana/grafana:latest
@@ -24,18 +25,22 @@ services:
       - grafana-data:/var/lib/grafana
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    networks: [cdia-net]
+    networks: 
+      - cdia-net
     depends_on: [prometheus]
 
   postgres_exporter:
     image: prometheuscommunity/postgres-exporter:latest
-    container_name: cdia-postgres-exporter
+    container_name: postgres-exporter
     environment:
       - DATA_SOURCE_NAME=postgresql://${CDIA_METRICS_DB_USER:-cdia_metrics}:${CDIA_METRICS_DB_PASSWORD:-change_me_metrics}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-cdia}?sslmode=disable
     ports:
       - "9187:9187"
-    networks: [cdia-net]
-    depends_on: [postgres]
+    networks: 
+      - cdia-net
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -47,12 +52,9 @@ services:
       - /var/run:/var/run:rw
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
-    networks: [cdia-net]
+    networks: 
+      - cdia-net
 
 volumes:
   prometheus-data:
   grafana-data:
-
-networks:
-  cdia:
-    external: true

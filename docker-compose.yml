@@ -17,8 +17,8 @@ services:
     container_name: postgres
     profiles: ["core", "all"]
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${CDIA_MIGRATIONS_DB_PASSWORD:-change_me_migrations}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERPASS:-change_me_superpass}
       POSTGRES_DB: ${POSTGRES_DB:-cdia}
       CDIA_APP_DB_USER: ${CDIA_APP_DB_USER:-cdia_app}
       CDIA_APP_DB_PASSWORD: ${CDIA_APP_DB_PASSWORD:-change_me_app}
@@ -229,6 +229,8 @@ services:
       - flink-checkpoints:/flink-checkpoints
       - flink-savepoints:/flink-savepoints
       - ./flink/conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+    expose:
+      - "9249"
     networks:
       - cdia-net
 
@@ -265,5 +267,7 @@ services:
       - flink-checkpoints:/flink-checkpoints
       - flink-savepoints:/flink-savepoints
       - ./flink/conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+    expose:
+      - "9249"
     networks:
       - cdia-net

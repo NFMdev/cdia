@@ -27,11 +27,12 @@ public class EventService {
 
     @Transactional
     public EventDto saveEvent(EventDto eventDto) {
+        normalizeEvent(eventDto);
         EventEntity entity = eventMapper.toEntity(eventDto);
         EventEntity saved = eventRepository.save(entity);
-        // Emit event to notify ES of a new event
-        publisher.publishEvent(new EventCreatedEvent(this, saved));
-        return eventMapper.toDto(saved);
+        EventDto savedDto = eventMapper.toDto(saved);
+        publisher.publishEvent(new EventCreatedEvent(this, savedDto));
+        return savedDto;
     }
 
     public EventDto getEventById(Long id) {
@@ -49,5 +50,23 @@ public class EventService {
 
     public void deleteEvent(Long id) {
         eventRepository.deleteById(id);
+    }
+
+    private void normalizeEvent(EventDto eventDto) {
+        if (eventDto.getStatus() == null || eventDto.getStatus().isBlank()) {
+            eventDto.setStatus("INGESTED");
+        }
+        if (eventDto.getType() == null || eventDto.getType().isBlank()) {
+            eventDto.setType("INCIDENT");
+        }
+        if (eventDto.getLocation() != null) {
+            eventDto.setLocation(eventDto.getLocation().trim());
+        }
+        if (eventDto.getDescription() != null) {
+            eventDto.setDescription(eventDto.getDescription().trim());
+        }
+        if (eventDto.getSourceSystem() != null) {
+            eventDto.setSourceSystem(eventDto.getSourceSystem().trim());
+        }
     }
 }

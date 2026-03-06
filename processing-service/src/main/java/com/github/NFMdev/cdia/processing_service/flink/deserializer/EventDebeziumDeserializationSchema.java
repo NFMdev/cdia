@@ -19,7 +19,7 @@ public class EventDebeziumDeserializationSchema implements DebeziumDeserializati
         }
 
         String operation = valueStruct.getString("op");
-        if (!"c".equals(operation) && !"r".equals(operation)) {
+        if (!"c".equals(operation) && !"r".equals(operation) && !"u".equals(operation)) {
             return;
         }
 
@@ -37,6 +37,7 @@ public class EventDebeziumDeserializationSchema implements DebeziumDeserializati
 
             Event event = new Event(
                     eventId,
+                    getOptionalString(after, "type"),
                     after.getString("description"),
                     after.getString("location"),
                     parseDebeziumLong(after.get("source_id")),
@@ -89,5 +90,12 @@ public class EventDebeziumDeserializationSchema implements DebeziumDeserializati
             return Long.parseLong(stringValue);
         }
         throw new IllegalArgumentException("Unsupported Debezium numeric type: " + rawValue.getClass());
+    }
+
+    private String getOptionalString(Struct struct, String fieldName) {
+        if (struct == null || struct.schema() == null || struct.schema().field(fieldName) == null) {
+            return null;
+        }
+        return struct.getString(fieldName);
     }
 }

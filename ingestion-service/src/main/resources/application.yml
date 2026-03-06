@@ -21,7 +21,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none   # schema is managed by Flyway (migrations role owns DDL)
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -38,3 +38,11 @@ management:
   metrics:
     tags:
       app: ${spring.application.name}
+
+cdia:
+  search:
+    base-url: ${CDIA_SEARCH_BASE_URL:http://search-service:8085}
+    indexing:
+      enabled: ${CDIA_SEARCH_INDEXING_ENABLED:true}
+      max-attempts: ${CDIA_SEARCH_INDEXING_MAX_ATTEMPTS:3}
+      retry-backoff-ms: ${CDIA_SEARCH_INDEXING_RETRY_BACKOFF_MS:200}

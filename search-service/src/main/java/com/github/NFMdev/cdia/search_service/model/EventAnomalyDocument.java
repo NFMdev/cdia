@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldType;
 
 
 @Getter
@@ -16,12 +18,31 @@ import org.springframework.data.elasticsearch.annotations.Document;
 public class EventAnomalyDocument {
     @Id
     private String id;
+
+    @Field(type = FieldType.Keyword)
     private String location;
-    public long eventCount;
-    public String windowStart;
-    public String windowEnd;
-    public String detectedAt;
-    public String rule;
-    public String severity;
-    public String description;
+
+    @Field(type = FieldType.Long)
+    private long eventCount;
+
+    private String windowStart;
+
+    private String windowEnd;
+
+    private String detectedAt;
+
+    @Field(type = FieldType.Text)
+    private String rule;
+
+    @Field(type = FieldType.Keyword)
+    private String severity;
+
+    @Field(type = FieldType.Keyword)
+    private String type;
+
+    @Field(type = FieldType.Keyword)
+    private String alertState;
+
+    @Field(type = FieldType.Text)
+    private String description;
 }

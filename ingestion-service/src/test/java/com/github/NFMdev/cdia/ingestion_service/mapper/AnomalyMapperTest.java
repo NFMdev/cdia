@@ -3,6 +3,7 @@ package com.github.NFMdev.cdia.ingestion_service.mapper;
 import com.github.NFMdev.cdia.common.dto.AnomalyDto;
 import com.github.NFMdev.cdia.ingestion_service.model.anomaly.AnomalyEntity;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -16,6 +17,7 @@ public class AnomalyMapperTest {
         anomalyMapper = org.mapstruct.factory.Mappers.getMapper(AnomalyMapper.class);
     }
 
+    @Test
     void testToEntity() {
         AnomalyDto dto = new AnomalyDto();
         dto.setDescription( "Test anomaly" );
@@ -26,6 +28,7 @@ public class AnomalyMapperTest {
         assertEquals(dto.getDescription(), entity.getDescription());
     }
 
+    @Test
     void testToDto() {
         AnomalyEntity entity = new AnomalyEntity();
         entity.setDescription("Test anomaly");

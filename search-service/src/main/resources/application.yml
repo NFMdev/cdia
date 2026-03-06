@@ -24,5 +24,21 @@ logging:
   level:
     org.springframework.data.elasticsearch: INFO
     co.elastic.clients: WARN
-    org.springframework.data.elasticsearch.core: DEBUG
-    org.springframework.data.elasticsearch.repository: DEBUG
+    org.springframework.data.elasticsearch.core: INFO
+    org.springframework.data.elasticsearch.repository: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      app: ${spring.application.name}
+
+cdia:
+  anomalies:
+    retention-days: ${CDIA_ANOMALIES_RETENTION_DAYS:30}

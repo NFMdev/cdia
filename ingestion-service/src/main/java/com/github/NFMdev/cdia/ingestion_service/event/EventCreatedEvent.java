@@ -1,18 +1,18 @@
 package com.github.NFMdev.cdia.ingestion_service.event;
 
-import com.github.NFMdev.cdia.ingestion_service.model.event.EventEntity;
+import com.github.NFMdev.cdia.common.dto.EventDto;
 import org.springframework.context.ApplicationEvent;
 
 public class EventCreatedEvent extends ApplicationEvent {
 
-    private final EventEntity event;
+    private final EventDto event;
 
-    public EventCreatedEvent(Object source, EventEntity event) {
+    public EventCreatedEvent(Object source, EventDto event) {
         super(source);
         this.event = event;
     }
 
-    public EventEntity getEventEntity() {
+    public EventDto getEvent() {
         return event;
     }
 }

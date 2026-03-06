@@ -1,0 +1,27 @@
+services:
+  web-dev:
+    image: node:22-alpine
+    container_name: cdia-web-dev
+    working_dir: /workspace/web
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+      VITE_USE_MOCK_API: ${VITE_USE_MOCK_API:-false}
+      VITE_ENABLE_HEATMAP: ${VITE_ENABLE_HEATMAP:-true}
+      VITE_FILTER_BY_BBOX: ${VITE_FILTER_BY_BBOX:-false}
+    volumes:
+      - ./:/workspace
+      - /workspace/web/node_modules
+    networks:
+      - cdia-net
+
+  nginx:
+    depends_on:
+      - web-dev
+      - search-service
+      - ingestion-service
+      - reports-service
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/conf.d/dev.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./infra/nginx/conf.d/observability.locations.conf:/etc/nginx/snippets/observability.locations.conf:ro

@@ -13,6 +13,16 @@ scrape_configs:
     static_configs:
       - targets: ["event-simulator-service:8082"]
 
+  - job_name: "search-service"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["search-service:8085"]
+
+  - job_name: "reports-service"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["reports-service:8084"]
+
   - job_name: "cdia-flink"
     static_configs:
       - targets:

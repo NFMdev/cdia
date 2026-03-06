@@ -18,6 +18,8 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.http.HttpHost;
 
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 
 public class AnomalyJob {
@@ -39,6 +41,12 @@ public class AnomalyJob {
                 "POSTGRES_PUBLICATION_AUTOCREATE_MODE",
                 "filtered"
         );
+        String postgresSlotName = System.getenv().getOrDefault("POSTGRES_SLOT_NAME", "flink");
+        StartupOptions startupOptions = resolveStartupOptions(System.getenv().getOrDefault("POSTGRES_STARTUP_MODE", "latest"));
+        String elasticsearchHosts = System.getenv().getOrDefault("ES_HOSTS", "http://cdia-elasticsearch:9200");
+        String elasticsearchUsername = System.getenv().getOrDefault("ES_USERNAME", "elastic");
+        String elasticsearchPassword = System.getenv().getOrDefault("ES_PASSWORD", "test");
+        String anomalyIndex = System.getenv().getOrDefault("ES_INDEX_EVENT_ANOMALIES", "event-anomalies");
         env.setParallelism(executionParallelism);
         // Checkpointing config
         env.enableCheckpointing(10_000L); // Checkpoint every 10 seconds
@@ -61,9 +69,9 @@ public class AnomalyJob {
                 .tableList("public.events")
                 .username(postgresUser)
                 .password(postgresPassword)
-                .slotName("flink")
+                .slotName(postgresSlotName)
                 .decodingPluginName("pgoutput")
-                .startupOptions(StartupOptions.latest())
+                .startupOptions(startupOptions)
                 .debeziumProperties(debeziumProperties)
                 .deserializer(deserializer)
                 .build();
@@ -77,7 +85,13 @@ public class AnomalyJob {
         ).returns(Event.class);
 
         // Real-time anomaly detection over a rolling 1-minute window
-        DataStream<EventAnomaly> anomalies = cdcEventsStream
+        DataStream<Event> validEvents = cdcEventsStream
+                .filter(event -> event.getCreatedAt() != null
+                        && event.getLocation() != null
+                        && !event.getLocation().isBlank())
+                .name("FilterInvalidEvents");
+
+        DataStream<EventAnomaly> anomalies = validEvents
                 .keyBy(Event::getLocation)
                 .process(new AnomalyDetectionFunction(
                         openThreshold,
@@ -90,9 +104,9 @@ public class AnomalyJob {
 
         // ES sink
         Elasticsearch8AsyncSink<EventAnomaly> sink = Elasticsearch8AsyncSinkBuilder.<EventAnomaly>builder()
-                .setHosts(HttpHost.create("http://cdia-elasticsearch:9200"))
-                .setUsername("elastic")
-                .setPassword("test")
+                .setHosts(parseHosts(elasticsearchHosts).toArray(HttpHost[]::new))
+                .setUsername(elasticsearchUsername)
+                .setPassword(elasticsearchPassword)
                 .setMaxBatchSize(100)
                 .setMaxInFlightRequests(8)
                 .setMaxBufferedRequests(2_000)
@@ -102,7 +116,7 @@ public class AnomalyJob {
                         (anomaly, ctx) -> new IndexOperation.Builder<EventAnomaly>()
                                 .id(anomaly.getId().toString())
                                 .document(anomaly)
-                                .index("event-anomalies")
+                                .index(anomalyIndex)
                                 .build()
                 ).build();
 
@@ -112,6 +126,22 @@ public class AnomalyJob {
                 .setParallelism(executionParallelism);
 
         env.execute("Anomaly Detection Job");
+    }
+
+    private static StartupOptions resolveStartupOptions(String configuredMode) {
+        return switch (configuredMode.toLowerCase()) {
+            case "initial" -> StartupOptions.initial();
+            case "earliest" -> StartupOptions.earliest();
+            default -> StartupOptions.latest();
+        };
+    }
+
+    private static List<HttpHost> parseHosts(String hostValue) {
+        return Arrays.stream(hostValue.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .map(HttpHost::create)
+                .toList();
     }
 
 }

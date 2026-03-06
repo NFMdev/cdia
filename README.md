@@ -5,7 +5,7 @@
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![Apache Flink](https://img.shields.io/badge/Apache%20Flink-1.20-red.svg)](https://flink.apache.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-blue.svg)](https://www.postgresql.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
 [![Elasticsearch](https://img.shields.io/badge/Elasticsearch-8.13.2-yellow.svg)](https://www.elastic.co/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -86,7 +86,7 @@ This project was created to demonstrate:
 - **Flink CDC Connector** - Change Data Capture from PostgreSQL
 
 ### Databases
-- **PostgreSQL 17** - Relational database for structured data
+- **PostgreSQL 16** - Relational database for structured data
     - Configured with WAL (Write-Ahead Logging) for CDC
     - Flyway migrations for schema versioning
 - **Elasticsearch 8.13.2** - Search engine and analytics
@@ -230,8 +230,7 @@ CDIA/
 ├── scripts/                         # Automation scripts
 │   ├── bootstrap-pipeline.sh       # Full build + startup (slow)
 │   ├── run-pipeline.sh             # Fast startup (no build)
-│   ├── wait-for-services.sh        # Health check script
-│   └── submit-job.sh               # Submit Flink jobs
+│   └── wait-for-services.sh        # Health check script
 │
 ├── initdb/                          # Database initialization
 ├── data/                            # Persistent data volumes
@@ -239,7 +238,11 @@ CDIA/
 │   └── elasticsearch/               # Elasticsearch indices
 │
 ├── docker-compose.yml               # Infrastructure orchestration
-├── docker-compose.override.yml      # Local development overrides
+├── docker-compose.dev.yml           # Web dev-mode overrides
+├── observability/
+│   └── docker-compose.observability.yml
+├── web/                             # React + Vite frontend
+├── infra/nginx/                     # Reverse-proxy gateway config
 ├── pom.xml                          # Maven parent POM
 └── README.md                        # This file
 ```
@@ -276,7 +279,7 @@ CDIA/
 
    This path starts containers, waits for readiness, and submits the Flink job.
 
-4. **First-time setup (or after code changes)**
+4. **First-time setup**
    ```bash
    bash scripts/bootstrap-pipeline.sh
    ```
@@ -295,36 +298,80 @@ CDIA/
    Expected output:
    ```
    NAME                 STATUS    PORTS
-   postgres             Up        0.0.0.0:5432->5432/tcp
-   cdia-elasticsearch   Up        0.0.0.0:9200->9200/tcp
-   ingestion-service    Up        0.0.0.0:8080->8080/tcp
-   search-service       Up        0.0.0.0:8085->8085/tcp
-   reports-service      Up        0.0.0.0:8084->8084/tcp
-   flink-jobmanager     Up        0.0.0.0:8081->8081/tcp
+   postgres             Up        127.0.0.1:5432->5432/tcp
+   cdia-elasticsearch   Up        127.0.0.1:9200->9200/tcp
+   ingestion-service    Up        127.0.0.1:8080->8080/tcp
+   search-service       Up        127.0.0.1:8085->8085/tcp
+   reports-service      Up        127.0.0.1:8084->8084/tcp
+   flink-jobmanager     Up        127.0.0.1:8081->8081/tcp
    flink-taskmanager    Up
    ```
 
 6. **Access the services**
-    - **Ingestion API**: http://localhost:8080/api/events
-    - **Search API**: http://localhost:8085/api/search
-    - **Reports API**: http://localhost:8084/api/reports
+    - **Ingestion API**: http://localhost:8080/events
+    - **Search API**: http://localhost:8085/search
+    - **Reports API**: http://localhost:8084/reports
     - **Event Simulator API**: http://localhost:8082/simulator/status
     - **Flink Dashboard**: http://localhost:8081
     - **Elasticsearch**: http://localhost:9200 (elastic/test)
 
 7. **Test with sample event**
    ```bash
-   curl -X POST http://localhost:8080/api/events \\
-     -H \"Content-Type: application/json\" \\
+   curl -X POST http://localhost:8080/events \\
+     -H "Content-Type: application/json" \\
      -d '{
-       \"description\": \"Suspicious activity reported\",
-       \"location\": \"Downtown Plaza\",
-       \"sourceSystem\": {
-         \"name\": \"CCTV System\",
-         \"type\": \"VIDEO_SURVEILLANCE\"
-       }
+       "type": "INCIDENT",
+       "description": "Suspicious activity reported",
+       "location": "Downtown Plaza",
+       "createdAt": "2026-03-06T14:30:00",
+       "sourceSystem": "SIMULATOR"
      }'
    ```
+
+### Web + Nginx Gateway
+
+#### Production-like mode (Nginx serves built frontend)
+
+```bash
+docker compose --profile core --profile apps --profile web up -d --build
+```
+
+Open: `http://localhost`
+
+#### Dev mode (Nginx proxies `/` to Vite dev server)
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml \
+  --profile core --profile apps --profile web up -d --build
+```
+
+#### Enable observability routes behind Nginx
+
+```bash
+docker compose \
+  -f docker-compose.yml \
+  -f observability/docker-compose.observability.yml \
+  --profile core --profile apps --profile web up -d --build
+```
+
+This adds subpath routes:
+- `/grafana/`
+- `/prometheus/`
+
+#### Gateway routes
+
+- `/` -> Web frontend (SPA with map-first home page)
+- `/api/*` -> backend APIs via Nginx routing
+- `/grafana/` -> Grafana (when observability compose is included)
+- `/prometheus/` -> Prometheus (when observability compose is included)
+- `/es/` -> Elasticsearch proxy (local debugging)
+
+#### Frontend env vars
+
+- `VITE_API_BASE_URL` (default `/api`)
+- `VITE_USE_MOCK_API` (default `false`)
+- `VITE_ENABLE_HEATMAP` (default `true`)
+- `VITE_FILTER_BY_BBOX` (default `false`)
 
 ### Manual Build & Run
 
@@ -332,18 +379,24 @@ If you prefer manual control:
 
 ```bash
 # Build all services
-mvn clean package -DskipTests
+mvn clean package
 
 # Start local dependencies for IDE-first development
 docker compose --profile core up -d
 docker compose --profile streaming up -d
-
-# Optionally run app containers too
 docker compose --profile core --profile apps up -d
 
 # Submit Flink job
 docker exec -it flink-jobmanager flink run \\
   /opt/flink/usrlib/processing-service.jar
+```
+
+### CI-safe Verification
+
+Use this command locally and in CI to run backend checks without Docker-bound integration tests:
+
+```bash
+mvn clean test -DskipITs
 ```
 
 ### IDE-first Local Workflows (Recommended)
@@ -363,6 +416,11 @@ docker compose --profile core --profile streaming down
 ```
 
 Elasticsearch local defaults keep security enabled with user `elastic` and password `${ELASTIC_PASSWORD:-test}`.
+
+Security defaults:
+- Service ports bind to `127.0.0.1` by default (`CDIA_BIND_HOST`).
+- `scripts/validate-env.sh` blocks insecure default secrets unless demo mode is explicit.
+- Use `UNSAFE_DEMO_MODE=true` only for local throwaway demos.
 
 ### Database Users and Local Env
 
@@ -400,7 +458,7 @@ The platform uses a custom bridge network (`cdia-net`) to enable:
 
 ```yaml
 postgres:
-  image: postgres:17
+  image: postgres:16-alpine
   environment:
     POSTGRES_USER: postgres
     POSTGRES_PASSWORD: ${CDIA_MIGRATIONS_DB_PASSWORD}
@@ -536,9 +594,9 @@ docker-compose down -v  # Remove volumes
 
 ## 🔄 Pipeline Flow
 
-You now have two script modes:
+You have two script modes:
 
-### 1) Fast run (daily use)
+### 1) Fast run
 
 ```bash
 docker compose --profile core --profile apps --profile streaming up -d
@@ -566,155 +624,3 @@ What it does:
 - Fast script is quick and suitable for demos/iterating.
 - Bootstrap script is deterministic for fresh setups.
 - People who prefer raw Docker can still just use `docker compose ...` directly.
-
----
-
-## 📚 API Documentation
-
-### Ingestion Service (Port 8080)
-
-#### Create Event
-```http
-POST /api/events
-Content-Type: application/json
-
-{
-  \"description\": \"Suspicious vehicle reported\",
-  \"location\": \"Main Street & 5th Ave\",
-  \"sourceSystem\": {
-    \"name\": \"Traffic Camera 42\",
-    \"type\": \"VIDEO_SURVEILLANCE\"
-  },
-  \"metadata\": {
-    \"vehicleType\": \"sedan\",
-    \"color\": \"black\",
-    \"licensePlate\": \"ABC-1234\"
-  },
-  \"images\": [
-    {
-      \"url\": \"https://example.com/image1.jpg\"
-    }
-  ]
-}
-```
-
-Response: `201 Created`
-```json
-{
-  \"id\": 1,
-  \"description\": \"Suspicious vehicle reported\",
-  \"location\": \"Main Street & 5th Ave\",
-  \"status\": \"INGESTED\",
-  \"createdAt\": \"2024-01-15T10:30:00\",
-  \"sourceSystem\": {
-    \"id\": 1,
-    \"name\": \"Traffic Camera 42\"
-  }
-}
-```
-
-#### Get Event by ID
-```http
-GET /api/events/{id}
-```
-
-#### Get All Events (Paginated)
-```http
-GET /api/events?page=0&size=20&sort=createdAt,desc
-```
-
-#### Health Check
-```http
-GET /actuator/health
-```
-
-### Search Service (Port 8085)
-
-#### Full-Text Search
-```http
-GET /api/search?q=suspicious&location=downtown&page=0&size=10
-```
-
-Response: `200 OK`
-```json
-{
-  \"content\": [
-    {
-      \"id\": \"1\",
-      \"description\": \"Suspicious activity reported\",
-      \"location\": \"Downtown Plaza\",
-      \"createdAt\": \"2024-01-15T10:30:00\",
-      \"anomalies\": [\"HIGH_FREQUENCY\", \"UNUSUAL_LOCATION\"]
-    }
-  ],
-  \"totalElements\": 45,
-  \"totalPages\": 5,
-  \"size\": 10
-}
-```
-
-#### Aggregations
-```http
-GET /api/search/aggregations?field=location&size=10
-```
-
-Response: `200 OK`
-```json
-{
-  \"buckets\": [
-    {\"key\": \"Downtown Plaza\", \"count\": 123},
-    {\"key\": \"Industrial Zone\", \"count\": 87},
-    {\"key\": \"Residential Area\", \"count\": 45}
-  ]
-}
-```
-
-### Reports Service (Port 8084)
-
-#### Get Dashboard
-```http
-GET /api/reports/dashboard?startDate=2024-01-01&endDate=2024-01-31
-```
-
-#### Export Report
-```http
-GET /api/reports/export?format=pdf&startDate=2024-01-01
-```
-
-### Event Simulator Service (Port 8082)
-
-Service to generate artificial events and automatically send them to igestion endpoint (`/events`).
-
-#### Check simulator status
-```http
-GET /simulator/status
-```
-
-Response: `200 OK`
-```json
-{
-  "running": false,
-  "targetUrl": "http://ingestion-service:8080/events",
-  "eps": 50,
-  "concurrency": 16,
-  "burstEnabled": true
-}
-```
-
-#### Start simulator
-```http
-POST /simulator/start
-```
-
-#### Stop simulator
-```http
-POST /simulator/stop
-```
-
-#### Config (application.yml)
-
-- `SIMULATOR_TARGET_URL`: target URL for the ingestion.
-- `simulator.events-per-second`: base generation rate.
-- `simulator.concurrency`: number of concurrent workers.
-- `simulator.burst.*`: interval rate.
-- `simulator.probabilities.*`: metadata/images probability.

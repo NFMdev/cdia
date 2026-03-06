@@ -2,3 +2,10 @@ spring:
 
   elasticsearch:
     uris: http://localhost:9200
+
+debug: false
+
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO

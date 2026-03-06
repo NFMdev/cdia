@@ -23,16 +23,21 @@ public class EventEntity {
     @JoinColumn(name = "source_id")
     private SourceSystemEntity sourceSystem;
     
+    @Column(nullable = false, length = 50)
+    private String type;
+
+    @Column(nullable = false)
     private String description;
+    @Column(nullable = false)
     private String location;
     
 //    @Column(columnDefinition = "json")
 //    private Map<String, Object> payload;
     
-    @Column(length = 20)
+    @Column(nullable = false, length = 20)
     private String status = "INGESTED";
     
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)

@@ -10,7 +10,6 @@ import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.util.Collector;
 
-import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -19,6 +18,7 @@ public class AnomalyDetectionFunction extends KeyedProcessFunction<String, Event
     private static final String ALERT_STATE_OPEN = "OPEN";
     private static final String ALERT_STATE_ONGOING = "ONGOING";
     private static final String ALERT_STATE_CLOSED = "CLOSED";
+    private static final String DEFAULT_ANOMALY_TYPE = "INCIDENT";
     private static final String SEVERITY_HIGH = "HIGH";
 
     private final long openThreshold;
@@ -36,6 +36,7 @@ public class AnomalyDetectionFunction extends KeyedProcessFunction<String, Event
     private transient ValueState<Long> latestActiveExpirationTimestamp;
     private transient ValueState<Long> nextReAlertProcessingTimer;
     private transient ValueState<String> activeAnomalyId;
+    private transient ValueState<String> activeAnomalyType;
 
     public AnomalyDetectionFunction(
             long openThreshold,
@@ -73,6 +74,8 @@ public class AnomalyDetectionFunction extends KeyedProcessFunction<String, Event
                 new ValueStateDescriptor<>("next-realert-processing-timer", Long.class));
         activeAnomalyId = getRuntimeContext().getState(
                 new ValueStateDescriptor<>("anomaly-id", String.class));
+        activeAnomalyType = getRuntimeContext().getState(
+                new ValueStateDescriptor<>("anomaly-type", String.class));
     }
 
     @Override
@@ -82,6 +85,7 @@ public class AnomalyDetectionFunction extends KeyedProcessFunction<String, Event
         }
 
         long eventTs = event.getCreatedAt().getTime();
+        updateActiveType(event.getType());
         long expirationTs = eventTs + windowSizeMillis;
         incrementExpiringCount(expirationTs);
         updateEventWindowBounds(expirationTs, event.getId());
@@ -98,6 +102,7 @@ public class AnomalyDetectionFunction extends KeyedProcessFunction<String, Event
                     out,
                     anomalyId,
                     context.getCurrentKey(),
+                    currentAnomalyType(),
                     currentCount,
                     windowSnapshot.windowEndTs(),
                     ALERT_STATE_OPEN,
@@ -210,6 +215,7 @@ public class AnomalyDetectionFunction extends KeyedProcessFunction<String, Event
                 out,
                 anomalyId,
                 context.getCurrentKey(),
+                currentAnomalyType(),
                 currentCount,
                 lastEventTs,
                 ALERT_STATE_ONGOING,
@@ -241,6 +247,7 @@ public class AnomalyDetectionFunction extends KeyedProcessFunction<String, Event
                     out,
                     anomalyId,
                     context.getCurrentKey(),
+                    currentAnomalyType(),
                     eventCount,
                     windowEndTs,
                     ALERT_STATE_CLOSED,
@@ -263,22 +270,27 @@ public class AnomalyDetectionFunction extends KeyedProcessFunction<String, Event
             Collector<EventAnomaly> out,
             String anomalyId,
             String location,
+            String type,
             long eventCount,
             long windowEndTs,
             String alertState,
             Long firstEventId,
             Long lastEventId) {
         String description = buildDescription(alertState, location, eventCount);
+        String windowStart = Instant.ofEpochMilli(windowEndTs - windowSizeMillis).toString();
+        String windowEnd = Instant.ofEpochMilli(windowEndTs).toString();
+        String detectedAt = windowEnd;
 
         out.collect(new EventAnomaly(
                 anomalyId,
                 location,
                 eventCount,
-                new Timestamp(windowEndTs - windowSizeMillis),
-                new Timestamp(windowEndTs),
-                Timestamp.from(Instant.now()),
+                windowStart,
+                windowEnd,
+                detectedAt,
                 ruleDescription,
                 SEVERITY_HIGH,
+                type,
                 alertState,
                 description,
                 firstEventId,
@@ -400,6 +412,7 @@ public class AnomalyDetectionFunction extends KeyedProcessFunction<String, Event
 
     private void clearAnomaly() throws Exception {
         activeAnomalyId.clear();
+        activeAnomalyType.clear();
     }
 
     private long currentActiveCount() throws Exception {
@@ -424,6 +437,26 @@ public class AnomalyDetectionFunction extends KeyedProcessFunction<String, Event
     private void incrementExpiringCount(long expirationTs) throws Exception {
         Long current = expirationsByTimestamp.get(expirationTs);
         expirationsByTimestamp.put(expirationTs, (current == null ? 0L : current) + 1L);
+    }
+
+    private void updateActiveType(String incomingType) throws Exception {
+        String normalized = normalizeType(incomingType);
+        if (normalized != null) {
+            activeAnomalyType.update(normalized);
+        }
+    }
+
+    private String currentAnomalyType() throws Exception {
+        String currentType = activeAnomalyType.value();
+        return currentType == null ? DEFAULT_ANOMALY_TYPE : currentType;
+    }
+
+    private String normalizeType(String input) {
+        if (input == null) {
+            return null;
+        }
+        String value = input.trim().toUpperCase();
+        return value.isEmpty() ? null : value;
     }
 
     private String buildDescription(String alertState, String location, long eventCount) {

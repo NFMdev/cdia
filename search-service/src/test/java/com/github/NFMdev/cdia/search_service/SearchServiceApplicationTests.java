@@ -5,6 +5,7 @@ import com.github.NFMdev.cdia.search_service.repository.EventAnomalyRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 
 @SpringBootTest
 class SearchServiceApplicationTests {
@@ -14,6 +15,9 @@ class SearchServiceApplicationTests {
 
 	@MockBean
 	private EventAnomalyRepository eventAnomalyRepository;
+
+	@MockBean
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Test
 	void contextLoads() {

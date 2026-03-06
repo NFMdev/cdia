@@ -63,3 +63,5 @@ dist/
 *.env
 .env
 !.env.example
+
+benchmarks/

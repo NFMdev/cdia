@@ -23,5 +23,7 @@ public class EventAnomalyDocument {
     public String detectedAt;
     public String rule;
     public String severity;
+    public String type;
+    public String alertState;
     public String description;
 }

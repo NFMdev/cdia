@@ -3,7 +3,8 @@ package com.github.NFMdev.cdia.ingestion_service.controller;
 
 import com.github.NFMdev.cdia.common.dto.EventDto;
 import com.github.NFMdev.cdia.ingestion_service.service.EventService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,21 +14,17 @@ import java.util.List;
 @RequestMapping("/events")
 public class EventController {
 
-    @Autowired
-    private EventService eventService;
+    private final EventService eventService;
+
+    public EventController(EventService eventService) {
+        this.eventService = eventService;
+    }
 
     @GetMapping("/{id}")
     public ResponseEntity<EventDto> getEvent(@PathVariable(name = "id") Long id) {
-        if (id != null) {
-            try {
-                EventDto eventDto = eventService.getEventById(id);
-                if (eventDto != null) {
-                    return ResponseEntity.ok(eventDto);
-                }
-                return ResponseEntity.notFound().build();
-            } catch (Exception e) {
-                return ResponseEntity.internalServerError().build();
-            }
+        EventDto eventDto = eventService.getEventById(id);
+        if (eventDto != null) {
+            return ResponseEntity.ok(eventDto);
         }
         return ResponseEntity.notFound().build();
     }
@@ -35,33 +32,22 @@ public class EventController {
 
     @GetMapping
     public ResponseEntity<List<EventDto>> getAllEvents() {
-        try {
-            if (eventService.getAllEvents().isEmpty()) {
-                return ResponseEntity.noContent().build();
-            }
-            return ResponseEntity.ok(eventService.getAllEvents());
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+        List<EventDto> events = eventService.getAllEvents();
+        if (events.isEmpty()) {
+            return ResponseEntity.noContent().build();
         }
+        return ResponseEntity.ok(events);
     }
 
     @PostMapping
-    public ResponseEntity<EventDto> createEvent(@RequestBody EventDto eventDto) {
-        try {
-            EventDto savedEvent = eventService.saveEvent(eventDto);
-            return ResponseEntity.ok(savedEvent);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
+    public ResponseEntity<EventDto> createEvent(@Valid @RequestBody EventDto eventDto) {
+        EventDto savedEvent = eventService.saveEvent(eventDto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedEvent);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteEvent(@PathVariable(name = "id") Long id) {
-        try {
-            eventService.deleteEvent(id);
-            return ResponseEntity.noContent().build();
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
+        eventService.deleteEvent(id);
+        return ResponseEntity.noContent().build();
     }
 }

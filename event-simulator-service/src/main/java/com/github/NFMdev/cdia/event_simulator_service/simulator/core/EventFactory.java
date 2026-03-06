@@ -25,18 +25,20 @@ public class EventFactory {
 
     public EventDto create(long seq, boolean burst, RandomGenerator seededRng) {
         String type = TYPES.get(seededRng.nextInt(TYPES.size()));
+        String tag = TAGS.get(seededRng.nextInt(TAGS.size()));
         int severity = 1 + seededRng.nextInt(5);
 
         String location = pickLocation(seededRng);
 
         EventDto dto = new EventDto();
-        dto.setDescription(generateDescription(type, severity, seededRng));
+        dto.setType(type);
+        dto.setDescription(generateDescription(type, tag, severity));
         dto.setLocation(location);
         dto.setStatus("NEW");
         dto.setCreatedAt(LocalDateTime.now().minusNanos(seededRng.nextInt(2_000_000_000)));
         dto.setSourceSystem("SIMULATOR");
 
-        dto.setMetadata(maybeMetadata(seededRng));
+        dto.setMetadata(maybeMetadata(type, tag, seededRng));
         dto.setImages(maybeImages(seededRng));
 
         return dto;
@@ -54,18 +56,22 @@ public class EventFactory {
         return locs.get(r.nextInt(locs.size()));
     }
 
-    private String generateDescription(String type, int severity, RandomGenerator r) {
+    private String generateDescription(String type, String tag, int severity) {
         return switch (type) {
-            case "ALERT" -> "Alert triggered due to unusual pattern. Severity " + severity + ".";
-            case "CRIME" -> "Crime report received from public channel. Severity " + severity + ".";
-            default -> "Incident reported near hotspot area. Severity " + severity + ".";
+            case "ALERT" -> "Alert triggered due to unusual pattern (" + tag + "). Severity " + severity + ".";
+            case "CRIME" -> "Crime report received from public channel (" + tag + "). Severity " + severity + ".";
+            default -> "Incident reported near hotspot area (" + tag + "). Severity " + severity + ".";
         };
     }
 
-    private Set<MetadataDto> maybeMetadata(RandomGenerator r) {
+    private Set<MetadataDto> maybeMetadata(String type, String tag, RandomGenerator r) {
         if (r.nextDouble() > props.getProbabilities().getMetadata())
-            return Set.of();
+            return Set.of(
+                    new MetadataDto(null, "type", type, null),
+                    new MetadataDto(null, "tag", tag, null));
         return Set.of(
+                new MetadataDto(null, "type", type, null),
+                new MetadataDto(null, "tag", tag, null),
                 new MetadataDto(null, "channel", List.of("phone", "web", "sensor").get(r.nextInt(3)), null),
                 new MetadataDto(null, "reporter", List.of("anonymous", "citizen", "agent").get(r.nextInt(3)), null));
     }

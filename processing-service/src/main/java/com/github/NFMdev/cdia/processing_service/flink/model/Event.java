@@ -11,6 +11,7 @@ import java.sql.Timestamp;
 @NoArgsConstructor
 public class Event {
     public Long id;
+    public String type;
     public String description;
     public String location;
     public Long sourceId;

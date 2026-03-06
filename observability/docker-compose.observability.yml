@@ -5,8 +5,10 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
+      - --web.external-url=http://localhost/prometheus/
+      - --web.route-prefix=/
     ports:
-      - "9090:9090"
+      - "${CDIA_BIND_HOST:-127.0.0.1}:9090:9090"
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
@@ -17,10 +19,12 @@ services:
     image: grafana/grafana:latest
     container_name: cdia-grafana
     ports:
-      - "3000:3000"
+      - "${CDIA_BIND_HOST:-127.0.0.1}:3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
       - grafana-data:/var/lib/grafana
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -29,13 +33,17 @@ services:
       - cdia-net
     depends_on: [prometheus]
 
+  nginx:
+    volumes:
+      - ./infra/nginx/conf.d/observability.enabled.conf:/etc/nginx/snippets/observability.locations.conf:ro
+
   postgres_exporter:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: postgres-exporter
     environment:
       - DATA_SOURCE_NAME=postgresql://${CDIA_METRICS_DB_USER:-cdia_metrics}:${CDIA_METRICS_DB_PASSWORD:-change_me_metrics}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-cdia}?sslmode=disable
     ports:
-      - "9187:9187"
+      - "${CDIA_BIND_HOST:-127.0.0.1}:9187:9187"
     networks: 
       - cdia-net
     depends_on:
@@ -46,7 +54,7 @@ services:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cdia-cadvisor
     ports:
-      - "8089:8080"
+      - "${CDIA_BIND_HOST:-127.0.0.1}:8089:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:rw

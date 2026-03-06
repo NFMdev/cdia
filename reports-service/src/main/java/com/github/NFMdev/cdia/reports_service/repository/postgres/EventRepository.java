@@ -11,7 +11,5 @@ public interface EventRepository extends JpaRepository<EventEntity, Long> {
     @Query("SELECT COUNT(DISTINCT e.location) FROM EventEntity e")
     long countDistinctLocations();
 
-    @Query("SELECT e FROM EventEntity e ORDER BY e.createdAt DESC LIMIT 1")
-    EventEntity findLastEvent();
+    EventEntity findTopByOrderByCreatedAtDesc();
 }
-

@@ -19,7 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
 @TestPropertySource(properties = {
-        "spring.jpa.hibernate.ddl-auto=none"
+        "spring.jpa.hibernate.ddl-auto=none",
+        "spring.flyway.enabled=true"
 })
 class FlywayPostgresIntegrationTest {
 
@@ -32,10 +33,12 @@ class FlywayPostgresIntegrationTest {
     @DynamicPropertySource
     static void configure(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
 
         registry.add("spring.flyway.url", postgres::getJdbcUrl);
+        registry.add("spring.flyway.driver-class-name", () -> "org.postgresql.Driver");
         registry.add("spring.flyway.user", postgres::getUsername);
         registry.add("spring.flyway.password", postgres::getPassword);
 

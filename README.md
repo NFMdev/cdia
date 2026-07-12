@@ -618,9 +618,3 @@ What it does:
 - Builds Java 21 services
 - Builds `processing-service` with Java 17 (Flink compatibility)
 - Runs the fast pipeline script afterward
-
-### Why this split
-
-- Fast script is quick and suitable for demos/iterating.
-- Bootstrap script is deterministic for fresh setups.
-- People who prefer raw Docker can still just use `docker compose ...` directly.
